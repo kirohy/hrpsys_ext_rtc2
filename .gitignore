@@ -1,0 +1,5 @@
+*~
+*.log
+src_gen/
+msg/hrpsys_ext_rtc_*
+srv/hrpsys_ext_rtc_*
