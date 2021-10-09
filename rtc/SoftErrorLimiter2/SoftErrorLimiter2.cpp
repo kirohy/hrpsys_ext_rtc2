@@ -137,15 +137,22 @@ RTC::ReturnCode_t SoftErrorLimiter2::onInitialize()
   m_beepCommand.data.length(bc.get_num_beep_info());
 
   // load joint limit table
+  std::string jointLimitTableProp;
+  if(this->getProperties().hasKey("joint_limit_table")) jointLimitTableProp = std::string(this->getProperties()["joint_limit_table"]);
+  else jointLimitTableProp = std::string(this->m_pManager->getConfig()["joint_limit_table"]); // 引数 -o で与えたプロパティを捕捉
+  std::cerr << "[" << this->m_profile.instance_name << "] joint_limit_table: " << jointLimitTableProp<<std::endl;
   std::vector<std::shared_ptr<joint_limit_table::JointLimitTable> > jointLimitTablesVec
-    = joint_limit_table::readJointLimitTablesFromProperty (m_robot, prop["joint_limit_table"]);
+    = joint_limit_table::readJointLimitTablesFromProperty (m_robot, jointLimitTableProp);
   for(size_t i=0;i<jointLimitTablesVec.size();i++){
     joint_limit_tables[jointLimitTablesVec[i]->getSelfJoint()->name()] = jointLimitTablesVec[i];
   }
 
   // read ignored joint
+  std::string maskJointLimitProp;
+  if(this->getProperties().hasKey("joint_limit_table")) maskJointLimitProp = std::string(this->getProperties()["joint_limit_table"]);
+  else maskJointLimitProp = std::string(this->m_pManager->getConfig()["joint_limit_table"]); // 引数 -o で与えたプロパティを捕捉
   m_joint_mask.resize(m_robot->numJoints(), false);
-  coil::vstring ijoints = coil::split(prop["mask_joint_limit"], ",");
+  coil::vstring ijoints = coil::split(maskJointLimitProp.c_str(), ",");
   for(int i = 0; i < ijoints.size(); i++) {
       cnoid::LinkPtr lk = m_robot->link(std::string(ijoints[i]));
       if((!!lk) && (lk->jointId() >= 0)) {
