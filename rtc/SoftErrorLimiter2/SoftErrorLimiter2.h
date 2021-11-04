@@ -151,6 +151,7 @@ class SoftErrorLimiter2
   std::map<std::string, std::shared_ptr<joint_limit_table::JointLimitTable> > joint_limit_tables;
   std::vector<double> m_servoErrorLimit;
   std::vector<bool> m_joint_mask;
+  std::vector<bool> m_positionLimitSatisfiedOnceBefore;
   unsigned int m_debugLevel;
   int dummy;
   BeepClient bc;

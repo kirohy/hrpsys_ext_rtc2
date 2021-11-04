@@ -149,8 +149,8 @@ RTC::ReturnCode_t SoftErrorLimiter2::onInitialize()
 
   // read ignored joint
   std::string maskJointLimitProp;
-  if(this->getProperties().hasKey("joint_limit_table")) maskJointLimitProp = std::string(this->getProperties()["joint_limit_table"]);
-  else maskJointLimitProp = std::string(this->m_pManager->getConfig()["joint_limit_table"]); // 引数 -o で与えたプロパティを捕捉
+  if(this->getProperties().hasKey("mask_joint_limit")) maskJointLimitProp = std::string(this->getProperties()["mask_joint_limit"]);
+  else maskJointLimitProp = std::string(this->m_pManager->getConfig()["mask_joint_limit"]); // 引数 -o で与えたプロパティを捕捉
   m_joint_mask.resize(m_robot->numJoints(), false);
   coil::vstring ijoints = coil::split(maskJointLimitProp.c_str(), ",");
   for(int i = 0; i < ijoints.size(); i++) {
@@ -167,6 +167,8 @@ RTC::ReturnCode_t SoftErrorLimiter2::onInitialize()
   for (unsigned int i=0; i<m_robot->numJoints(); i++){
     m_servoErrorLimit[i] = (0.2 - 0.02); // [rad]
   }
+
+  m_positionLimitSatisfiedOnceBefore.resize(m_robot->numJoints(), false);
 
   return RTC::RTC_OK;
 }
@@ -308,9 +310,13 @@ RTC::ReturnCode_t SoftErrorLimiter2::onExecute(RTC::UniqueId ec_id)
           llimit = it->second->getLlimit(m_qRef.data[it->second->getTargetJoint()->jointId()]);
           ulimit = it->second->getUlimit(m_qRef.data[it->second->getTargetJoint()->jointId()]);
       }
+      // check only the joints which satisfied position limits once before
+      if ( servo_state[i] == 1 && (llimit <= m_qRef.data[i]) && (m_qRef.data[i] <= ulimit) ) m_positionLimitSatisfiedOnceBefore[i] = true;
+      else if ( servo_state[i] != 1 ) m_positionLimitSatisfiedOnceBefore[i] = false;
+
       // fixed joint have vlimit = ulimit
       bool servo_limit_state = (llimit < ulimit) && ((llimit > m_qRef.data[i]) || (ulimit < m_qRef.data[i]));
-      if ( servo_state[i] == 1 && servo_limit_state ) {
+      if ( servo_state[i] == 1 && m_positionLimitSatisfiedOnceBefore[i] && servo_limit_state ) {
         if (loop % debug_print_freq == 0 || debug_print_position_first) {
           std::cerr << "[" << m_profile.instance_name<< "] [" << m_qRef.tm
                     << "] position limit over " << m_robot->joint(i)->name() << "(" << i << "), qRef=" << m_qRef.data[i]
