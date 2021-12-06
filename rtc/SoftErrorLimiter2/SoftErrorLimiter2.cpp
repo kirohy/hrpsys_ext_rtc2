@@ -307,8 +307,8 @@ RTC::ReturnCode_t SoftErrorLimiter2::onExecute(RTC::UniqueId ec_id)
       double ulimit = m_robot->joint(i)->q_upper();
       if (joint_limit_tables.find(m_robot->joint(i)->name()) != joint_limit_tables.end()) {
           std::map<std::string, std::shared_ptr<joint_limit_table::JointLimitTable> >::iterator it = joint_limit_tables.find(m_robot->joint(i)->name());
-          llimit = it->second->getLlimit(m_qRef.data[it->second->getTargetJoint()->jointId()]);
-          ulimit = it->second->getUlimit(m_qRef.data[it->second->getTargetJoint()->jointId()]);
+          llimit = std::max(llimit, it->second->getLlimit(m_qRef.data[it->second->getTargetJoint()->jointId()]));
+          ulimit = std::min(ulimit, it->second->getUlimit(m_qRef.data[it->second->getTargetJoint()->jointId()]));
       }
       // check only the joints which satisfied position limits once before
       if ( servo_state[i] == 1 && (llimit <= m_qRef.data[i]) && (m_qRef.data[i] <= ulimit) ) m_positionLimitSatisfiedOnceBefore[i] = true;
