@@ -473,7 +473,7 @@ bool SoftErrorLimiter2::setServoErrorLimit(const char *jname, double limit) {
       m_servoErrorLimit[i] = limit;
     }
     std::cerr << "[el] setServoErrorLimit " << limit << "[rad] for all joints" << std::endl;
-  }else if ((l = m_robot->link(jname))){
+  }else if ((l = m_robot->link(jname)) && (l->jointId() >= 0)){
     m_servoErrorLimit[l->jointId()] = limit;
     std::cerr << "[el] setServoErrorLimit " << limit << "[rad] for " << jname << std::endl;
   }else{
