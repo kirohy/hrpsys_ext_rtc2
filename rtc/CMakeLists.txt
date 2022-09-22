@@ -1,2 +1,2 @@
 add_subdirectory(SoftErrorLimiter2)
-add_subdirectory(CollisionDetector2)
+#add_subdirectory(CollisionDetector2)

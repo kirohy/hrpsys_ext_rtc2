@@ -113,6 +113,7 @@ RTC::ReturnCode_t SoftErrorLimiter2::onInitialize()
   std::string fileName;
   if(this->getProperties().hasKey("model")) fileName = std::string(this->getProperties()["model"]);
   else fileName = std::string(this->m_pManager->getConfig()["model"]); // 引数 -o で与えたプロパティを捕捉
+  if (fileName.find("file://") == 0) fileName.erase(0, strlen("file://"));
   std::cerr << "[" << this->m_profile.instance_name << "] model: " << fileName <<std::endl;
   m_robot = bodyLoader.load(fileName);
   if(!m_robot){
