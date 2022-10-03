@@ -170,6 +170,7 @@ RTC::ReturnCode_t SoftErrorLimiter2::onInitialize()
   }
 
   m_positionLimitSatisfiedOnceBefore.resize(m_robot->numJoints(), false);
+  m_servo_state.resize(m_robot->numJoints(), 0);
 
   return RTC::RTC_OK;
 }
@@ -271,10 +272,12 @@ RTC::ReturnCode_t SoftErrorLimiter2::onExecute(RTC::UniqueId ec_id)
         prev_angle[i] = m_qCurrent.data[i];
       }
     }
-    std::vector<int> servo_state;
-    servo_state.resize(m_qRef.data.length(), 0);
     for ( unsigned int i = 0; i < m_qRef.data.length(); i++ ){
-        servo_state[i] = (m_servoState.data[i][0] & OpenHRP::RobotHardwareService::SERVO_STATE_MASK) >> OpenHRP::RobotHardwareService::SERVO_STATE_SHIFT; // enum SwitchStatus {SWITCH_ON, SWITCH_OFF};
+      if(((m_servoState.data[i][0] & OpenHRP::RobotHardwareService::SERVO_STATE_MASK) >> OpenHRP::RobotHardwareService::SERVO_STATE_SHIFT) == 1){
+        m_servo_state[i] = 10;
+      }else{
+        m_servo_state[i] = std::max(0, m_servo_state[i] - 1);
+      }
     }
 
       /*
@@ -312,18 +315,18 @@ RTC::ReturnCode_t SoftErrorLimiter2::onExecute(RTC::UniqueId ec_id)
           ulimit = std::min(ulimit, it->second->getUlimit(m_qRef.data[it->second->getTargetJoint()->jointId()]));
       }
       // check only the joints which satisfied position limits once before
-      if ( servo_state[i] == 1 && (llimit <= m_qRef.data[i]) && (m_qRef.data[i] <= ulimit) ) m_positionLimitSatisfiedOnceBefore[i] = true;
-      else if ( servo_state[i] != 1 ) m_positionLimitSatisfiedOnceBefore[i] = false;
+      if ( m_servo_state[i] >= 1 && (llimit <= m_qRef.data[i]) && (m_qRef.data[i] <= ulimit) ) m_positionLimitSatisfiedOnceBefore[i] = true;
+      else if ( m_servo_state[i] == 0 ) m_positionLimitSatisfiedOnceBefore[i] = false;
 
       // fixed joint have vlimit = ulimit
       bool servo_limit_state = (llimit < ulimit) && ((llimit > m_qRef.data[i]) || (ulimit < m_qRef.data[i]));
-      if ( servo_state[i] == 1 && m_positionLimitSatisfiedOnceBefore[i] && servo_limit_state ) {
+      if ( m_servo_state[i] >= 1 && m_positionLimitSatisfiedOnceBefore[i] && servo_limit_state ) {
         if (loop % debug_print_freq == 0 || debug_print_position_first) {
           std::cerr << "[" << m_profile.instance_name<< "] [" << m_qRef.tm
                     << "] position limit over " << m_robot->joint(i)->name() << "(" << i << "), qRef=" << m_qRef.data[i]
                     << ", llimit =" << llimit
                     << ", ulimit =" << ulimit
-                    << ", servo_state = " <<  ( servo_state[i] ? "ON" : "OFF")
+                    << ", servo_state = " <<  ( m_servo_state[i] >= 1 ? "ON" : "OFF")
                     << ", prev_angle = " << prev_angle[i];
         }
         // fix joint angles
@@ -340,7 +343,7 @@ RTC::ReturnCode_t SoftErrorLimiter2::onExecute(RTC::UniqueId ec_id)
       {
       double limit = std::max(0.0, m_servoErrorLimit[i]); // limit should be greater than or equal to zero.
       double error = m_qRef.data[i] - m_qCurrent.data[i];
-      if ( servo_state[i] == 1 && fabs(error) > limit ) {
+      if ( m_servo_state[i] >= 1 && fabs(error) > limit ) {
         if (loop % debug_print_freq == 0 || debug_print_error_first ) {
           std::cerr << "[" << m_profile.instance_name<< "] [" << m_qRef.tm
                     << "] error limit over " << m_robot->joint(i)->name() << "(" << i << "), qRef=" << m_qRef.data[i]
@@ -363,13 +366,13 @@ RTC::ReturnCode_t SoftErrorLimiter2::onExecute(RTC::UniqueId ec_id)
       double lvlimit = m_robot->joint(i)->dq_lower() + 0.000175; // 0.01 deg / sec
       double uvlimit = m_robot->joint(i)->dq_upper() - 0.000175;
       // fixed joint has ulimit = vlimit
-      if ( servo_state[i] == 1 && (lvlimit < uvlimit) && ((lvlimit > qvel) || (uvlimit < qvel)) ) {
+      if ( m_servo_state[i] >= 1 && (lvlimit < uvlimit) && ((lvlimit > qvel) || (uvlimit < qvel)) ) {
         if (loop % debug_print_freq == 0 || debug_print_velocity_first ) {
           std::cerr << "[" << m_profile.instance_name<< "] [" << m_qRef.tm
                     << "] velocity limit over " << m_robot->joint(i)->name() << "(" << i << "), qvel=" << qvel
                     << ", lvlimit =" << lvlimit
                     << ", uvlimit =" << uvlimit
-                    << ", servo_state = " <<  ( servo_state[i] ? "ON" : "OFF");
+                    << ", servo_state = " <<  ( m_servo_state[i] >= 1 ? "ON" : "OFF");
         }
         // fix joint angle
         m_qRef.data[i] = std::min(prev_angle[i] + uvlimit * dt, std::max(prev_angle[i] + lvlimit * dt, m_qRef.data[i]));

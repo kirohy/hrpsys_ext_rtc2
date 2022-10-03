@@ -152,6 +152,7 @@ class SoftErrorLimiter2
   std::vector<double> m_servoErrorLimit;
   std::vector<bool> m_joint_mask;
   std::vector<bool> m_positionLimitSatisfiedOnceBefore;
+  std::vector<int> m_servo_state; // servoOnなら10. offなら毎周期1ずつ減っていく. 0より下にはならない. 通信不良によって一瞬だけ通信が途切れてservoOff扱いになった場合に、softErrorLimitをやめないようにするため
   unsigned int m_debugLevel;
   int dummy;
   BeepClient bc;
