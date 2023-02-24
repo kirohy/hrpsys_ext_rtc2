@@ -6,11 +6,11 @@ set(CMAKE_BUILD_TYPE Release)
 add_definitions(-Wno-deprecated)
 
 find_package(catkin REQUIRED COMPONENTS
-  joint_limit_table
+  hrpsys_ros_bridge
+  cpp_filters
   )
 find_package(choreonoid REQUIRED)
 find_package(PkgConfig)
-pkg_check_modules(hrpsys hrpsys-base REQUIRED)
 
 find_package(PkgConfig)
 pkg_check_modules(openrtm_aist openrtm-aist REQUIRED)
@@ -18,7 +18,6 @@ pkg_check_modules(openrtm_aist openrtm-aist REQUIRED)
 include_directories(
   ${catkin_INCLUDE_DIRS}
   ${CHOREONOID_INCLUDE_DIRS}
-  ${hrpsys_INCLUDE_DIRS}
   ${openrtm_aist_INCLUDE_DIRS}
   )
 
@@ -27,20 +26,19 @@ link_directories(
   ${openrtm_aist_LIBRARY_DIRS}
   )
 
-add_library(SoftErrorLimiter2 SHARED
-  SoftErrorLimiter2.cpp
-  SoftErrorLimiter2Service_impl.cpp
-  beep.cpp
+add_library(EmergencyStopper2 SHARED
+  EmergencyStopper2.cpp
+  EmergencyStopper2Service_impl.cpp
   )
-target_link_libraries(SoftErrorLimiter2
+target_link_libraries(EmergencyStopper2
   ${catkin_LIBRARIES}
   ${CHOREONOID_BODY_LIBRARIES}
   ${openrtm_aist_LIBRARIES}
   ${${PROJECT_NAME}_IDLLIBRARY_DIRS}
-  HRPDataTypesSkel HRPDataTypesStub hrpsysUtil
+  RobotHardwareServiceSkel RobotHardwareServiceStub
   )
-set_target_properties(SoftErrorLimiter2 PROPERTIES PREFIX "") # libSoftErrorLimiter2.so -> SoftErrorLimiter2.so
-add_dependencies(SoftErrorLimiter2 RTMBUILD_${PROJECT_NAME}_genrpc) # wait for rtmbuild_genidl
+set_target_properties(EmergencyStopper2 PROPERTIES PREFIX "") # libEmergencyStopper2.so -> EmergencyStopper2.so
+add_dependencies(EmergencyStopper2 RTMBUILD_${PROJECT_NAME}_genrpc) # wait for rtmbuild_genidl
 
-add_executable(SoftErrorLimiter2Comp SoftErrorLimiter2Comp.cpp)
-target_link_libraries(SoftErrorLimiter2Comp SoftErrorLimiter2)
+add_executable(EmergencyStopper2Comp EmergencyStopper2Comp.cpp)
+target_link_libraries(EmergencyStopper2Comp EmergencyStopper2)

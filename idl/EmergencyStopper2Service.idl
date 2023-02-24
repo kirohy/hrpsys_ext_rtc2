@@ -1,0 +1,47 @@
+module hrpsys_ext_rtc
+{
+  interface EmergencyStopper2Service
+  {
+    /**
+     * @struct EmergencyStopperParam
+     * @brief Parameters for EmergencyStopper.
+     */
+    struct EmergencyStopper2Param
+    {
+      double recover_time;
+      double retrieve_time;
+      double servoon_time;
+      double servooff_time;
+    };
+
+    /**
+     * @brief Stop Input Motion.
+     * @return true if set successfully, false otherwise
+     */
+    void stopMotion(in string name);
+
+    /**
+     * @brief Release Motion.
+     * @return true if set successfully, false otherwise
+     */
+    void releaseMotion(in string name);
+
+    /**
+     * @brief Start Torque Control.
+     * @return true if set successfully, false otherwise
+     */
+    void startTorque(in string name);
+
+    /**
+     * @brief Get EmergencyStopperParam
+     * @return true if set successfully, false otherwise
+     */
+    boolean getEmergencyStopper2Param(out EmergencyStopper2Param i_param);
+
+    /**
+     * @brief Set EmergencyStopperParam
+     * @return true if set successfully, false otherwise
+     */
+    boolean setEmergencyStopper2Param(in EmergencyStopper2Param i_param);
+  };
+};

@@ -6,31 +6,32 @@ set(CMAKE_BUILD_TYPE Release)
 add_definitions(-Wno-deprecated)
 
 find_package(catkin REQUIRED COMPONENTS
-  rtmbuild
   choreonoid_qhull
   choreonoid_vclip
   cpp_filters
   )
 
 find_package(choreonoid REQUIRED)
-# 相対パスを絶対パスに直す
-set(CHOREONOID_BODY_LIBRARIES_ABS)
-foreach(lib ${CHOREONOID_BODY_LIBRARIES})
-  find_library(${lib}_abs NAMES ${lib} PATHS ${CHOREONOID_LIBRARY_DIRS})
-  set(CHOREONOID_BODY_LIBRARIES_ABS ${CHOREONOID_BODY_LIBRARIES_ABS} ${${lib}_abs})
-endforeach(lib)
 
 find_package(PkgConfig)
 pkg_check_modules(hrpsys hrpsys-base REQUIRED)
 
+find_package(PkgConfig)
+pkg_check_modules(openrtm_aist openrtm-aist REQUIRED)
 
 include_directories(
   ${catkin_INCLUDE_DIRS}
   ${CHOREONOID_INCLUDE_DIRS}
   ${hrpsys_INCLUDE_DIRS}
+  ${openrtm_aist_INCLUDE_DIRS}
   )
 
-rtmbuild_add_library(CollisionDetector2 SHARED
+link_directories(
+  ${CHOREONOID_LIBRARY_DIRS}
+  ${openrtm_aist_LIBRARY_DIRS}
+  )
+
+add_library(CollisionDetector2 SHARED
   CollisionDetector2.cpp
   CollisionDetector2Service_impl.cpp
   ../SoftErrorLimiter2/beep.cpp
@@ -38,11 +39,13 @@ rtmbuild_add_library(CollisionDetector2 SHARED
 target_link_libraries(CollisionDetector2
   ${catkin_LIBRARIES}
   ${CHOREONOID_BODY_LIBRARIES_ABS}
+  ${openrtm_aist_LIBRARIES}
+  ${${PROJECT_NAME}_IDLLIBRARY_DIRS}
   HRPDataTypesSkel HRPDataTypesStub
   CollisionDetectorServiceSkel CollisionDetectorServiceStub
   )
 set_target_properties(CollisionDetector2 PROPERTIES PREFIX "") # libCollisionDetector2.so -> CollisionDetector2.so
 #add_dependencies(CollisionDetector2 RTMBUILD_${PROJECT_NAME}_genrpc) # wait for rtmbuild_genidl
 
-rtmbuild_add_executable(CollisionDetector2Comp CollisionDetector2Comp.cpp)
+add_executable(CollisionDetector2Comp CollisionDetector2Comp.cpp)
 target_link_libraries(CollisionDetector2Comp CollisionDetector2)

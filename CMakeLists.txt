@@ -9,11 +9,11 @@ project(hrpsys_ext_rtc)
 cmake_policy(SET CMP0046 OLD)
 
 find_package(catkin REQUIRED COMPONENTS
-  rtmbuild
+  rtmbuild2
   roscpp)
 
 # initialize rtmbuild (generate_messages is called)
-rtmbuild_init()
+rtmbuild2_init()
 
 catkin_package(
 #  INCLUDE_DIRS include
@@ -23,10 +23,10 @@ catkin_package(
 )
 
 # generate idl
-rtmbuild_genidl()
+rtmbuild2_genidl()
 
 # generate bridge
-rtmbuild_genbridge()
+rtmbuild2_genbridge()
 
 ###########
 ## Build ##
