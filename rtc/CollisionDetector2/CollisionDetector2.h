@@ -1,12 +1,3 @@
-// -*- C++ -*-
-/*!
- * @file  CollisionDetector.h
- * @brief collision detector component
- * @date  $Date$
- *
- * $Id$
- */
-
 #ifndef COLLISION_DETECTOR2_H
 #define COLLISION_DETECTOR2_H
 
@@ -23,38 +14,15 @@
 #include <unordered_map>
 
 #include "CollisionDetector2Service_impl.h"
-#include "../SoftErrorLimiter2/beep.h"
-
-using namespace RTC;
 
 class CollisionDetector2
   : public RTC::DataFlowComponentBase
 {
  public:
-  /**
-     \brief Constructor
-     \param manager pointer to the Manager
-  */
   CollisionDetector2(RTC::Manager* manager);
-  /**
-     \brief Destructor
-  */
-  virtual ~CollisionDetector2();
-
-  // The initialize action (on CREATED->ALIVE transition)
-  // formaer rtc_init_entry()
   virtual RTC::ReturnCode_t onInitialize();
-
-  // The activated action (Active state entry action)
-  // former rtc_active_entry()
   virtual RTC::ReturnCode_t onActivated(RTC::UniqueId ec_id);
-
-  // The deactivated action (Active state exit action)
-  // former rtc_active_exit()
   virtual RTC::ReturnCode_t onDeactivated(RTC::UniqueId ec_id);
-
-  // The execution action that is invoked periodically
-  // former rtc_active_do()
   virtual RTC::ReturnCode_t onExecute(RTC::UniqueId ec_id);
 
   bool setTolerance(const char *i_link_pair_name, double i_tolerance);
@@ -66,46 +34,22 @@ class CollisionDetector2
   bool disable(void);
 
  protected:
-  // Configuration variable declaration
-  // <rtc-template block="config_declare">
-  
-  // </rtc-template>
-
-  // DataInPort declaration
-  // <rtc-template block="inport_declare">
-  TimedDoubleSeq m_qRef;
-  InPort<TimedDoubleSeq> m_qRefIn;
+  RTC::TimedDoubleSeq m_qRef;
+  RTC::InPort<RTC::TimedDoubleSeq> m_qRefIn;
+  RTC::TimedDoubleSeq m_qCurrent;
+  RTC::InPort<RTC::TimedDoubleSeq> m_qCurrentIn;
   OpenHRP::TimedLongSeqSeq m_servoState;
-  InPort<OpenHRP::TimedLongSeqSeq> m_servoStateIn;
-  
-  // </rtc-template>
+  RTC::InPort<OpenHRP::TimedLongSeqSeq> m_servoStateIn;
 
-  // DataOutPort declaration
-  // <rtc-template block="outport_declare">
-  TimedDoubleSeq m_q;
-  OutPort<TimedDoubleSeq> m_qOut;
-  TimedLongSeq m_beepCommand;
-  OutPort<TimedLongSeq> m_beepCommandOut;
-  
-  // </rtc-template>
+  RTC::TimedLong m_stopSignal;
+  RTC::OutPort<RTC::TimedLong> m_stopSignalOut;
+  RTC::TimedLong m_releaseSignal;
+  RTC::OutPort<RTC::TimedLong> m_releaseSignalOut;
 
-  // CORBA Port declaration
-  // <rtc-template block="corbaport_declare">
   RTC::CorbaPort m_CollisionDetector2ServicePort;
-  
-  // </rtc-template>
 
-  // Service declaration
-  // <rtc-template block="service_declare">
   CollisionDetector2Service_impl m_service0;
-  
-  // </rtc-template>
 
-  // Consumer declaration
-  // <rtc-template block="consumer_declare">
-
-  
-  // </rtc-template>
   void setupVClipModel(cnoid::BodyPtr i_body);
   void setupVClipModel(cnoid::Link *i_link);
 
@@ -120,22 +64,14 @@ class CollisionDetector2
     double tolerance;
   };
   std::unordered_map<cnoid::LinkPtr, std::shared_ptr<Vclip::Polyhedron> > m_VclipLinks;
-  std::vector<int> m_curr_collision_mask, m_init_collision_mask;
   cnoid::BodyPtr m_robot;
   std::map<std::string, std::shared_ptr<CollisionLinkPair> > m_pair;
-  int m_loop_for_check, m_collision_loop;
 
   std::vector<bool> m_link_collision;
   unsigned int m_debugLevel;
   bool m_enable;
 
-  double collision_beep_freq; // [Hz]
-  int  collision_beep_count;
   OpenHRP::CollisionDetectorService::CollisionState m_state;
-  BeepClient bc;
-  // Since this RTC is stable RTC, we support both direct beeping from this RTC and beepring through BeeperRTC.
-  // If m_beepCommand is connected to BeeperRTC, is_beep_port_connected is true.
-  bool is_beep_port_connected;
 
   bool collision_mode;
   cnoid::VectorXd m_stop_jointdata;

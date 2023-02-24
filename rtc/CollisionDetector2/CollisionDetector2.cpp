@@ -1,12 +1,3 @@
-// -*- C++ -*-
-/*!
- * @file  CollisionDetector.cpp
- * @brief collisoin detector component
- * $Date$
- *
- * $Id$
- */
-
 #include <iomanip>
 #include <rtm/CorbaNaming.h>
 #include <cnoid/BodyLoader>
@@ -14,11 +5,6 @@
 #include "CollisionDetector2.h"
 #include <choreonoid_qhull/choreonoid_qhull.h>
 
-#define deg2rad(x)	((x)*M_PI/180)
-#define rad2deg(x)      ((x)*180/M_PI)
-
-// Module specification
-// <rtc-template block="module_spec">
 static const char* component_spec[] =
 {
     "implementation_id", "CollisionDetector2",
@@ -51,25 +37,15 @@ static std::ostream& operator<<(std::ostream& os, const struct RTC::Time &tm)
 CollisionDetector2::CollisionDetector2(RTC::Manager* manager)
     : RTC::DataFlowComponentBase(manager),
       m_qRefIn("qRef", m_qRef),
+      m_qCurrentIn("qCurrent", m_qCurrent),
       m_servoStateIn("servoStateIn", m_servoState),
-      m_qOut("q", m_q),
-      m_beepCommandOut("beepCommand", m_beepCommand),
+      m_stopSignalOut("stopSignal", m_stopSignal),
+      m_releaseSignalOut("releaseSignal", m_releaseSignal),
       m_CollisionDetector2ServicePort("CollisionDetector2Service"),
-      m_loop_for_check(0),
-      m_collision_loop(1),
-      m_debugLevel(0),
       m_enable(true),
-      is_beep_port_connected(false),
       collision_mode(false)
 {
     m_service0.collision(this);
-    init_beep();
-    start_beep(3136);
-}
-
-CollisionDetector2::~CollisionDetector2()
-{
-  quit_beep();
 }
 
 
@@ -77,31 +53,15 @@ CollisionDetector2::~CollisionDetector2()
 RTC::ReturnCode_t CollisionDetector2::onInitialize()
 {
     std::cerr << "[" << m_profile.instance_name << "] onInitialize()" << std::endl;
-    // <rtc-template block="bind_config">
-    // Bind variables and configuration variable
-    bindParameter("debugLevel", m_debugLevel, "0");
 
-    // </rtc-template>
-
-    // Registration: InPort/OutPort/Service
-    // <rtc-template block="registration">
-    // Set InPort buffers
     addInPort("qRef", m_qRefIn);
+    addInPort("qCurrent", m_qCurrentIn);
     addInPort("servoStateIn", m_servoStateIn);
+    addOutPort("stopSignal", m_stopSignalOut);
+    addOutPort("releaseSignal", m_releaseSignalOut);
 
-    // Set OutPort buffer
-    addOutPort("q", m_qOut);
-    addOutPort("beepCommand", m_beepCommandOut);
-
-    // Set service provider to Ports
     m_CollisionDetector2ServicePort.registerProvider("service0", "CollisionDetector2Service", m_service0);
-
-    // Set service consumers to Ports
-
-    // Set CORBA Service Ports
     addPort(m_CollisionDetector2ServicePort);
-
-    // </rtc-template>
 
     // load robot
     cnoid::BodyLoader bodyLoader;
@@ -115,15 +75,8 @@ RTC::ReturnCode_t CollisionDetector2::onInitialize()
       return RTC::RTC_ERROR;
     }
 
-    std::string collisionModelStr;
-    if(this->getProperties().hasKey("collision_model")) collisionModelStr = std::string(this->getProperties()["collision_model"]);
-    else collisionModelStr = std::string(this->m_pManager->getConfig()["collision_model"]); // 引数 -o で与えたプロパティを捕捉
-    std::cerr << "[" << this->m_profile.instance_name << "] collision_model: " << collisionModelStr <<std::endl;
-    if ( collisionModelStr == "convex hull" ||
-         collisionModelStr == "" ) { // set convex hull as default
-      choreonoid_qhull::convertAllCollisionToConvexHull(this->m_robot);
-    }
-    setupVClipModel(this->m_robot);
+    choreonoid_qhull::convertAllCollisionToConvexHull(this->m_robot);
+    this->setupVClipModel(this->m_robot);
 
     std::string collisionPairStr;
     if ( this->getProperties().hasKey("collision_pair")) collisionPairStr = std::string(this->getProperties()["collision_pair"]);
@@ -156,33 +109,6 @@ RTC::ReturnCode_t CollisionDetector2::onInitialize()
       m_pair[tmp] = std::make_shared<CollisionLinkPair>(m_robot->link(name1), m_robot->link(name2));
     }
 
-    std::string collisionLoopStr = "1";
-    if ( this->getProperties().hasKey("collision_pair")) collisionPairStr = std::string(this->getProperties()["collision_pair"]);
-    else if( this->m_pManager->getConfig().hasKey("collision_pair") ) collisionPairStr = std::string(this->m_pManager->getConfig()["collision_pair"]); // 引数 -o で与えたプロパティを捕捉
-    this->m_collision_loop = std::stoi(collisionLoopStr);
-    std::cerr << "[" << m_profile.instance_name << "] set collision_loop: " << m_collision_loop << std::endl;
-
-    // true (1) do not move when collide,
-    // false(0) move even if collide
-    this->m_curr_collision_mask.resize(m_robot->numJoints(), 0); // collision_mask used to select output                0: passthough reference data, 1 output safe data
-    this->m_init_collision_mask.resize(m_robot->numJoints(), 1); // collision_mask defined in .conf as [collisoin_mask] 0: move even if collide, 1: do not move when collide
-    std::string collisionMaskStr;
-    if ( this->getProperties().hasKey("collision_mask")) collisionMaskStr = std::string(this->getProperties()["collision_mask"]);
-    else if( this->m_pManager->getConfig().hasKey("collision_mask") ) collisionMaskStr = std::string(this->m_pManager->getConfig()["collision_mask"]); // 引数 -o で与えたプロパティを捕捉
-    if ( collisionMaskStr != "" ) {
-      std::cerr << "[" << m_profile.instance_name << "] prop[collision_mask] ->" << collisionMaskStr << std::endl;
-      coil::vstring mask_str = coil::split(collisionMaskStr, ",");
-      if (mask_str.size() == m_robot->numJoints()) {
-        for (size_t i = 0; i < m_robot->numJoints(); i++) {coil::stringTo(this->m_init_collision_mask[i], mask_str[i].c_str()); }
-        for (size_t i = 0; i < m_robot->numJoints(); i++) {
-          if ( this->m_init_collision_mask[i] == 0 ) {
-            std::cerr << "[" << m_profile.instance_name << "] CollisionDetector2 will not control " << this->m_robot->joint(i)->name() << std::endl;
-          }
-        }
-      }else{
-        std::cerr << "[" << m_profile.instance_name << "] ERROR size of collision_mask is differ from robot joint number .. " << mask_str.size()  << ", " << m_robot->numJoints() << std::endl;
-      }
-    }
 
     // setup collision state
     this->m_state.angle.length(m_robot->numJoints());
@@ -209,9 +135,6 @@ RTC::ReturnCode_t CollisionDetector2::onInitialize()
     this->m_stop_jointdata = cnoid::VectorXd::Zero(m_robot->numJoints());
     this->m_link_collision.resize(m_robot->numLinks(),false);
 
-    this->collision_beep_freq = 3.0; // 3 times / 1[s]
-    this->collision_beep_count = 0;
-    m_beepCommand.data.length(bc.get_num_beep_info());
     return RTC::RTC_OK;
 }
 
@@ -238,16 +161,6 @@ RTC::ReturnCode_t CollisionDetector2::onExecute(RTC::UniqueId ec_id)
 
     double dt = 1.0 / this->get_context(ec_id)->get_rate();
 
-    // Connection check of m_beepCommand to BeeperRTC
-    //   If m_beepCommand is not connected to BeeperRTC and sometimes, check connection.
-    //   If once connection is found, never check connection.
-    if (!is_beep_port_connected && (loop % 500 == 0) ) {
-      if ( m_beepCommandOut.connectors().size() > 0 ) {
-        is_beep_port_connected = true;
-        quit_beep();
-        std::cerr << "[" << m_profile.instance_name<< "] beepCommand data port connection found! Use BeeperRTC." << std::endl;
-      }
-    }
 
     /*
       サーボオン状態の関節があるときに、次の指令値が自己干渉しない姿勢->自己干渉する姿勢に遷移するものだった場合、collision modeが作動する.
@@ -419,28 +332,9 @@ RTC::ReturnCode_t CollisionDetector2::onExecute(RTC::UniqueId ec_id)
       m_q.tm = m_qRef.tm;
       m_qOut.write();
 
-      // beep sound for collision alert
-      if ( !m_safe_posture && has_servoOn ) { // If collided and some joint is servoOn
-        int beep_loop = 1.0 / dt / collision_beep_freq;
-        if (is_beep_port_connected) {
-          if ( collision_beep_count % beep_loop == 0 && collision_beep_count % (beep_loop * 3) != 0 ) bc.startBeep(2352, beep_loop*0.7);
-          else bc.stopBeep();
-        } else {
-          if ( collision_beep_count % beep_loop == 0 && collision_beep_count % (beep_loop * 3) != 0 ) start_beep(2352, beep_loop*0.7);
-          else stop_beep();
-        }
-        collision_beep_count++;
-      } else {
-        if (is_beep_port_connected) bc.stopBeep();
-        collision_beep_count = 0;
-      }
 
       if ( ++m_loop_for_check >= m_collision_loop ) m_loop_for_check = 0;
 
-    }
-    if (is_beep_port_connected) {
-      bc.setDataPort(m_beepCommand);
-      if (bc.isWritable()) m_beepCommandOut.write();
     }
     return RTC::RTC_OK;
 }
