@@ -12,7 +12,7 @@
 
   <depend>roscpp</depend>
   <depend>rtmbuild2</depend>
-  <depend>hrpsys</depend>
+  <depend>hrpsys_ros_bridge</depend>
   <depend>choreonoid</depend>
   <depend>joint_limit_table</depend> <!-- for SoftErrorLimiter2 -->
   <depend>choreonoid_qhull</depend> <!-- for CollisionDetector2 -->
