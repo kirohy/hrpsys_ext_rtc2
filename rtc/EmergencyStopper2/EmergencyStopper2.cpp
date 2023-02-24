@@ -28,6 +28,8 @@ EmergencyStopper2::EmergencyStopper2(RTC::Manager* manager)
   m_tauRefIn("qRef", m_tauRef),
   m_qActIn("qAct", m_qAct),
   m_tauCtlIn("tauCtl", m_tauCtl),
+  m_stopSignalIn("stopSignal", m_stopSignal),
+  m_releaseSignalIn("releaseSignal", m_releaseSignal),
   m_qOut("q", m_q),
   m_tauOut("tau", m_tau),
   m_EmergencyStopper2ServicePort("EmergencyStopper2Service"),
@@ -42,6 +44,8 @@ RTC::ReturnCode_t EmergencyStopper2::onInitialize()
   addInPort("tauRef", m_tauRefIn);
   addInPort("qAct", m_qActIn);
   addInPort("tauCtl", m_tauCtlIn);
+  addInPort("stopSignal", m_stopSignalIn);
+  addInPort("releaseSignal", m_releaseSignalIn);
   addOutPort("q", m_qOut);
   addOutPort("tau", m_tauOut);
   m_EmergencyStopper2ServicePort.registerProvider("service0", "EmergencyStopper2Service", m_service0);
@@ -119,31 +123,43 @@ RTC::ReturnCode_t EmergencyStopper2::onExecute(RTC::UniqueId ec_id)
       for(int i=0;i<this->robot->numJoints();i++) this->joints[i].tauCtl = this->m_tauCtl.data[i];
     }
   }
+  if (this->m_stopSignalIn.isNew()) {
+    this->m_stopSignalIn.read();
+    if(this->m_stopSignal.data) {
+      for (int i=0; i<this->robot->numJoints(); i++) this->joints[i].stopMotion();
+    }
+  }
+  if (this->m_releaseSignalIn.isNew()) {
+    this->m_releaseSignalIn.read();
+    if(this->m_releaseSignal.data) {
+      for (int i=0; i<this->robot->numJoints(); i++) this->joints[i].releaseMotion(this->recover_time);
+    }
+  }
 
   for(int i=0;i<this->robot->numJoints();i++){
     if(this->joints[i].mode == Joint::MODE_REF){
       this->joints[i].qOut.setGoal(this->joints[i].qRef, this->joints[i].interpolationTime);
       this->joints[i].tauOut = this->joints[i].tauRef;
-      if(this->joints[i].syncInit){
+      if(this->joints[i].changeGain){
         this->m_robotHardwareService0->setServoPGainPercentageWithTime(this->robot->joint(i)->name().c_str(),100.0,this->servoon_time);
         this->m_robotHardwareService0->setServoDGainPercentageWithTime(this->robot->joint(i)->name().c_str(),100.0,this->servoon_time);
-        this->joints[i].syncInit = false;
+        this->joints[i].changeGain = false;
       }
     }else if(this->joints[i].mode == Joint::MODE_STOP){
       this->joints[i].qOut.reset(this->joints[i].qOut.value());
       this->joints[i].tauOut = 0.0;
-      if(this->joints[i].syncInit){
+      if(this->joints[i].changeGain){
         this->m_robotHardwareService0->setServoPGainPercentageWithTime(this->robot->joint(i)->name().c_str(),100.0,this->servoon_time);
         this->m_robotHardwareService0->setServoDGainPercentageWithTime(this->robot->joint(i)->name().c_str(),100.0,this->servoon_time);
-        this->joints[i].syncInit = false;
+        this->joints[i].changeGain = false;
       }
     }else if(this->joints[i].mode == Joint::MODE_TORQUE){
       this->joints[i].qOut.setGoal(this->joints[i].qAct, this->joints[i].interpolationTime);
       this->joints[i].tauOut = this->joints[i].tauCtl;
-      if(this->joints[i].syncInit){
+      if(this->joints[i].changeGain){
         this->m_robotHardwareService0->setServoPGainPercentageWithTime(this->robot->joint(i)->name().c_str(),0.0,this->servooff_time);
         this->m_robotHardwareService0->setServoDGainPercentageWithTime(this->robot->joint(i)->name().c_str(),0.0,this->servooff_time);
-        this->joints[i].syncInit = false;
+        this->joints[i].changeGain = false;
       }
     }
 
@@ -183,9 +199,9 @@ bool EmergencyStopper2::stopMotion(const char *jname) {
 
 void EmergencyStopper2::Joint::stopMotion(){
   if(this->mode != MODE_STOP){
+    if(this->mode == MODE_TORQUE) this->changeGain = true;
     this->mode = MODE_STOP;
     this->interpolationTime = 0.0;
-    this->syncInit = true;
     this->qOut.reset(this->qOut.value());
   }
 }
@@ -209,9 +225,9 @@ bool EmergencyStopper2::releaseMotion(const char *jname) {
 
 void EmergencyStopper2::Joint::releaseMotion(double recover_time){
   if(this->mode != MODE_REF){
+    if(this->mode == MODE_TORQUE) this->changeGain = true;
     this->mode = MODE_REF;
     this->interpolationTime = recover_time;
-    this->syncInit = true;
     this->qOut.reset(this->qOut.value());
   }
 }
@@ -237,7 +253,7 @@ void EmergencyStopper2::Joint::startTorque(double retrieve_time){
   if(this->mode != MODE_TORQUE){
     this->mode = MODE_TORQUE;
     this->interpolationTime = retrieve_time;
-    this->syncInit = true;
+    this->changeGain = true;
     this->qOut.reset(this->qOut.value());
   }
 }

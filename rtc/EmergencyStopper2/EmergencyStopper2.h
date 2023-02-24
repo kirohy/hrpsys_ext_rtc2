@@ -35,10 +35,14 @@ class EmergencyStopper2 : public RTC::DataFlowComponentBase
   RTC::TimedDoubleSeq m_tauRef;
   RTC::TimedDoubleSeq m_qAct;
   RTC::TimedDoubleSeq m_tauCtl;
+  RTC::TimedLong m_stopSignal;
+  RTC::TimedLong m_releaseSignal;
   RTC::InPort<RTC::TimedDoubleSeq> m_qRefIn;
   RTC::InPort<RTC::TimedDoubleSeq> m_tauRefIn;
   RTC::InPort<RTC::TimedDoubleSeq> m_qActIn;
   RTC::InPort<RTC::TimedDoubleSeq> m_tauCtlIn;
+  RTC::InPort<RTC::TimedLong> m_stopSignalIn;
+  RTC::InPort<RTC::TimedLong> m_releaseSignalIn;
 
   RTC::TimedDoubleSeq m_q;
   RTC::TimedDoubleSeq m_tau;
@@ -59,7 +63,7 @@ class EmergencyStopper2 : public RTC::DataFlowComponentBase
     enum Mode_enum{ MODE_REF, MODE_STOP, MODE_TORQUE};
     Mode_enum mode = MODE_REF;
     double interpolationTime = 0.0;
-    bool syncInit = false;
+    bool changeGain = false;
     double qRef = 0.0;
     double tauRef = 0.0;
     double qAct = 0.0;
@@ -71,7 +75,7 @@ class EmergencyStopper2 : public RTC::DataFlowComponentBase
       mode = MODE_REF;
       interpolationTime = 0.0;
       qOut.reset(qRef);
-      syncInit = false;
+      changeGain = false;
     }
     void stopMotion();
     void releaseMotion(double recover_time);
