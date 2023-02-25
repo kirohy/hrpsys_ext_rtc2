@@ -74,7 +74,7 @@ class CollisionDetector2
   bool m_collisionFreeOnce;
   bool prevCollision;
 
-  double tolerance = 0.0;
+  double tolerance = 0.005;
   double recover_time = 1.0;
 };
 

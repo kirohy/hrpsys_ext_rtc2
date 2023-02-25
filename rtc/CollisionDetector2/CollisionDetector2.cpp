@@ -231,7 +231,7 @@ RTC::ReturnCode_t CollisionDetector2::onExecute(RTC::UniqueId ec_id)
             // qRefへ向かう姿勢で干渉チェック
             bool getWorse = false;
             {
-              cnoid::VectorX qNextv = this->m_qCurrentv + (this->m_qRefv - this->m_qCurrentv) * dt;
+              cnoid::VectorX qNextv = this->m_qCurrentv + (this->m_qRefv - this->m_qCurrentv) * dt / recover_time;
               for ( int i = 0; i < this->m_robot->numJoints(); i++ ){
                 this->m_robot->joint(i)->q() = qNextv[i];
               }
@@ -247,14 +247,14 @@ RTC::ReturnCode_t CollisionDetector2::onExecute(RTC::UniqueId ec_id)
                   if(c->nextDistance <= c->currentDistance) {
                     getWorse = true;
                     if ( this->loop%200==0 || !this->prevCollision ) {
-                      std::cerr << "[" << m_profile.instance_name << "] " << i << "/" << this->m_pair.size() << " pair: " << c->link0->name() << "/" << c->link1->name() << ", distance = " << c->currentDistance << std::endl;
+                      std::cerr << "[" << m_profile.instance_name << "] " << i << "/" << this->m_pair.size() << " pair: " << c->link0->name() << "/" << c->link1->name() << ", distance = " << c->currentDistance << " (" << c->nextDistance << ")" << std::endl;
                     }
                   }
                 }else{
                   if(c->nextDistance <= this->tolerance) {
                     getWorse = true;
                     if ( this->loop%200==0 || !this->prevCollision ) {
-                      std::cerr << "[" << m_profile.instance_name << "] " << i << "/" << this->m_pair.size() << " pair: " << c->link0->name() << "/" << c->link1->name() << ", distance = " << c->currentDistance << std::endl;
+                      std::cerr << "[" << m_profile.instance_name << "] " << i << "/" << this->m_pair.size() << " pair: " << c->link0->name() << "/" << c->link1->name() << ", distance = " << c->currentDistance << " (" << c->nextDistance << ")" << std::endl;
                     }
                   }
                 }
@@ -320,8 +320,8 @@ bool CollisionDetector2::disable(void)
 
 bool CollisionDetector2::setCollisionDetector2Param(const hrpsys_ext_rtc::CollisionDetector2Service::CollisionDetector2Param& i_param){
   std::lock_guard<std::mutex> guard(this->mutex_);
-  this->tolerance = i_param.tolerance;
-  this->recover_time = i_param.recover_time;
+  this->tolerance = std::max(i_param.tolerance, 1e-4); // 完全にめりこむと距離計算が正しく機能しないので、マージンが必要
+  this->recover_time = std::max(i_param.recover_time, 0.001);
   return true;
 }
 
