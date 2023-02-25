@@ -25,7 +25,7 @@ static const char* emergencystopper_spec[] =
 EmergencyStopper2::EmergencyStopper2(RTC::Manager* manager)
   : RTC::DataFlowComponentBase(manager),
   m_qRefIn("qRef", m_qRef),
-  m_tauRefIn("qRef", m_tauRef),
+  m_tauRefIn("tauRef", m_tauRef),
   m_qActIn("qAct", m_qAct),
   m_tauCtlIn("tauCtl", m_tauCtl),
   m_stopSignalIn("stopSignal", m_stopSignal),
