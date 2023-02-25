@@ -44,7 +44,7 @@ target_link_libraries(CollisionDetector2
   HRPDataTypesSkel HRPDataTypesStub
   )
 set_target_properties(CollisionDetector2 PROPERTIES PREFIX "") # libCollisionDetector2.so -> CollisionDetector2.so
-#add_dependencies(CollisionDetector2 RTMBUILD_${PROJECT_NAME}_genrpc) # wait for rtmbuild_genidl
+add_dependencies(CollisionDetector2 RTMBUILD_${PROJECT_NAME}_genrpc) # wait for rtmbuild_genidl
 
 add_executable(CollisionDetector2Comp CollisionDetector2Comp.cpp)
 target_link_libraries(CollisionDetector2Comp CollisionDetector2)
