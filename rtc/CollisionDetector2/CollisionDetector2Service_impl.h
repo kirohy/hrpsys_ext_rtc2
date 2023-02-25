@@ -11,7 +11,7 @@ class CollisionDetector2Service_impl
       public virtual PortableServer::RefCountServantBase
 {
 public:
-    CollisionDetector2Service_impl();
+    CollisionDetector2Service_impl();// 実装は.cppファイルの方に書かないと、registerProvider時にSegmentation Faultになる
     virtual ~CollisionDetector2Service_impl();
     //
     CORBA::Boolean enableCollisionDetection();

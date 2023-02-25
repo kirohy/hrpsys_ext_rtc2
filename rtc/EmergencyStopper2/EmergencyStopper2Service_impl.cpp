@@ -2,6 +2,10 @@
 #include "EmergencyStopper2Service_impl.h"
 #include "EmergencyStopper2.h"
 
+EmergencyStopper2Service_impl::EmergencyStopper2Service_impl()
+{
+}
+
 void EmergencyStopper2Service_impl::stopMotion(const char *jname)
 {
     comp_->stopMotion(jname);

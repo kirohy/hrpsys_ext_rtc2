@@ -1,9 +1,7 @@
-// -*- mode: c++; indent-tabs-mode: t; tab-width: 4; c-basic-offset: 4; -*-
 #ifndef __SOFT_ERROR_LIMITER_SERVICE_H__
 #define __SOFT_ERROR_LIMITER_SERVICE_H__
 
 #include "hrpsys_ext_rtc/idl/SoftErrorLimiter2Service.hh"
-#include <cnoid/Body>
 
 class SoftErrorLimiter2;
 
@@ -15,7 +13,7 @@ public:
 	/**
 	   \brief constructor
 	*/
-	SoftErrorLimiter2Service_impl();
+	SoftErrorLimiter2Service_impl(); // 実装は.cppファイルの方に書かないと、registerProvider時にSegmentation Faultになる
 
 	/**
 	   \brief destructor

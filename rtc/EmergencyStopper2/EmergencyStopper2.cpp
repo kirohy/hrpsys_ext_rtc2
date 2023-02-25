@@ -40,6 +40,7 @@ EmergencyStopper2::EmergencyStopper2(RTC::Manager* manager)
 
 RTC::ReturnCode_t EmergencyStopper2::onInitialize()
 {
+  std::cerr << "[" << m_profile.instance_name << "] onInitialize()" << std::endl;
   addInPort("qRef", m_qRefIn);
   addInPort("tauRef", m_tauRefIn);
   addInPort("qAct", m_qActIn);
@@ -57,7 +58,7 @@ RTC::ReturnCode_t EmergencyStopper2::onInitialize()
 
   cnoid::BodyLoader bodyLoader;
   std::string fileName;
-  if(this->getProperties().hasKey("model")) fileName = std::string(prop["model"]);
+  if(prop.hasKey("model")) fileName = std::string(prop["model"]);
   else fileName = std::string(this->m_pManager->getConfig()["model"]); // 引数 -o で与えたプロパティを捕捉
   if (fileName.find("file://") == 0) fileName.erase(0, strlen("file://"));
   std::cerr << "[" << this->m_profile.instance_name << "] model: " << fileName <<std::endl;
@@ -141,24 +142,33 @@ RTC::ReturnCode_t EmergencyStopper2::onExecute(RTC::UniqueId ec_id)
       this->joints[i].qOut.setGoal(this->joints[i].qRef, this->joints[i].interpolationTime);
       this->joints[i].tauOut = this->joints[i].tauRef;
       if(this->joints[i].changeGain){
-        this->m_robotHardwareService0->setServoPGainPercentageWithTime(this->robot->joint(i)->name().c_str(),100.0,this->servoon_time);
-        this->m_robotHardwareService0->setServoDGainPercentageWithTime(this->robot->joint(i)->name().c_str(),100.0,this->servoon_time);
+        if(!CORBA::is_nil(this->m_robotHardwareService0._ptr()) && //コンシューマにプロバイダのオブジェクト参照がセットされていない(接続されていない)状態
+           !this->m_robotHardwareService0->_non_existent()){ //プロバイダのオブジェクト参照は割り当てられているが、相手のオブジェクトが非活性化 (RTC は Inactive 状態) になっている状態
+          this->m_robotHardwareService0->setServoPGainPercentageWithTime(this->robot->joint(i)->name().c_str(),100.0,this->servoon_time);
+          this->m_robotHardwareService0->setServoDGainPercentageWithTime(this->robot->joint(i)->name().c_str(),100.0,this->servoon_time);
+        }
         this->joints[i].changeGain = false;
       }
     }else if(this->joints[i].mode == Joint::MODE_STOP){
       this->joints[i].qOut.reset(this->joints[i].qOut.value());
       this->joints[i].tauOut = 0.0;
       if(this->joints[i].changeGain){
-        this->m_robotHardwareService0->setServoPGainPercentageWithTime(this->robot->joint(i)->name().c_str(),100.0,this->servoon_time);
-        this->m_robotHardwareService0->setServoDGainPercentageWithTime(this->robot->joint(i)->name().c_str(),100.0,this->servoon_time);
+        if(!CORBA::is_nil(this->m_robotHardwareService0._ptr()) && //コンシューマにプロバイダのオブジェクト参照がセットされていない(接続されていない)状態
+           !this->m_robotHardwareService0->_non_existent()){ //プロバイダのオブジェクト参照は割り当てられているが、相手のオブジェクトが非活性化 (RTC は Inactive 状態) になっている状態
+          this->m_robotHardwareService0->setServoPGainPercentageWithTime(this->robot->joint(i)->name().c_str(),100.0,this->servoon_time);
+          this->m_robotHardwareService0->setServoDGainPercentageWithTime(this->robot->joint(i)->name().c_str(),100.0,this->servoon_time);
+        }
         this->joints[i].changeGain = false;
       }
     }else if(this->joints[i].mode == Joint::MODE_TORQUE){
       this->joints[i].qOut.setGoal(this->joints[i].qAct, this->joints[i].interpolationTime);
       this->joints[i].tauOut = this->joints[i].tauCtl;
       if(this->joints[i].changeGain){
-        this->m_robotHardwareService0->setServoPGainPercentageWithTime(this->robot->joint(i)->name().c_str(),0.0,this->servooff_time);
-        this->m_robotHardwareService0->setServoDGainPercentageWithTime(this->robot->joint(i)->name().c_str(),0.0,this->servooff_time);
+        if(!CORBA::is_nil(this->m_robotHardwareService0._ptr()) && //コンシューマにプロバイダのオブジェクト参照がセットされていない(接続されていない)状態
+           !this->m_robotHardwareService0->_non_existent()){ //プロバイダのオブジェクト参照は割り当てられているが、相手のオブジェクトが非活性化 (RTC は Inactive 状態) になっている状態
+          this->m_robotHardwareService0->setServoPGainPercentageWithTime(this->robot->joint(i)->name().c_str(),0.0,this->servooff_time);
+          this->m_robotHardwareService0->setServoDGainPercentageWithTime(this->robot->joint(i)->name().c_str(),0.0,this->servooff_time);
+        }
         this->joints[i].changeGain = false;
       }
     }

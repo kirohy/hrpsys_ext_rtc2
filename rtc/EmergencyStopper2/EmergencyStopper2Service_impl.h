@@ -10,6 +10,8 @@ class EmergencyStopper2Service_impl
       public virtual PortableServer::RefCountServantBase
 {
 public:
+    EmergencyStopper2Service_impl(); // 実装は.cppファイルの方に書かないと、registerProvider時にSegmentation Faultになる
+
     void stopMotion(const char *jname);
     void releaseMotion(const char *jname);
     void startTorque(const char *jname);
