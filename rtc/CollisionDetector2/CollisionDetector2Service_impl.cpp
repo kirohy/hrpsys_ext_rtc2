@@ -19,21 +19,16 @@ CORBA::Boolean CollisionDetector2Service_impl::disableCollisionDetection()
     return m_collision->disable();
 }
 
-CORBA::Boolean CollisionDetector2Service_impl::setTolerance(const char *i_link_pair_name, CORBA::Double d_tolerance)
+CORBA::Boolean CollisionDetector2Service_impl::setCollisionDetector2Param(const hrpsys_ext_rtc::CollisionDetector2Service::CollisionDetector2Param& i_param)
 {
-    return m_collision->setTolerance(i_link_pair_name, d_tolerance);
-}
+  return this->m_collision->setCollisionDetector2Param(i_param);
+};
 
-CORBA::Boolean CollisionDetector2Service_impl::setCollisionLoop(CORBA::Short loop)
+CORBA::Boolean CollisionDetector2Service_impl::getCollisionDetector2Param(hrpsys_ext_rtc::CollisionDetector2Service::CollisionDetector2Param_out i_param)
 {
-	return m_collision->setCollisionLoop(loop);
-}
-
-CORBA::Boolean CollisionDetector2Service_impl::getCollisionStatus(OpenHRP::CollisionDetectorService::CollisionState_out state)
-{
-    state = new OpenHRP::CollisionDetectorService::CollisionState;
-    return m_collision->getCollisionStatus(*state);
-}
+  i_param = hrpsys_ext_rtc::CollisionDetector2Service::CollisionDetector2Param();
+  return this->m_collision->getCollisionDetector2Param(i_param);
+};
 
 void CollisionDetector2Service_impl::collision(CollisionDetector2 *i_collision)
 {

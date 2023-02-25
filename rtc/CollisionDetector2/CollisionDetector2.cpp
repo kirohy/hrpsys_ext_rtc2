@@ -41,9 +41,7 @@ CollisionDetector2::CollisionDetector2(RTC::Manager* manager)
       m_servoStateIn("servoStateIn", m_servoState),
       m_stopSignalOut("stopSignal", m_stopSignal),
       m_releaseSignalOut("releaseSignal", m_releaseSignal),
-      m_CollisionDetector2ServicePort("CollisionDetector2Service"),
-      m_enable(true),
-      collision_mode(false)
+      m_CollisionDetector2ServicePort("CollisionDetector2Service")
 {
     m_service0.collision(this);
 }
@@ -109,31 +107,9 @@ RTC::ReturnCode_t CollisionDetector2::onInitialize()
       m_pair[tmp] = std::make_shared<CollisionLinkPair>(m_robot->link(name1), m_robot->link(name2));
     }
 
-
-    // setup collision state
-    this->m_state.angle.length(m_robot->numJoints());
-    this->m_state.collide.length(m_robot->numLinks());
-
-    // allocate memory for outPorts
-    this->m_q.data.length(this->m_robot->numJoints());
-    for(unsigned int i=0; i<this->m_robot->numJoints(); i++){
-      this->m_q.data[i] = 0;
-    }
-    this->m_servoState.data.length(this->m_robot->numJoints());
-    for(unsigned int i = 0; i < this->m_robot->numJoints(); i++) {
-      this->m_servoState.data[i].length(1);
-      int status = 0;
-      status |= 1<< OpenHRP::RobotHardwareService::CALIB_STATE_SHIFT;
-      status |= 1<< OpenHRP::RobotHardwareService::POWER_STATE_SHIFT;
-      status |= 1<< OpenHRP::RobotHardwareService::SERVO_STATE_SHIFT;
-      status |= 0<< OpenHRP::RobotHardwareService::SERVO_ALARM_SHIFT;
-      status |= 0<< OpenHRP::RobotHardwareService::DRIVER_TEMP_SHIFT;
-      this->m_servoState.data[i][0] = status;
-    }
-
-    this->m_safe_posture = true;
-    this->m_stop_jointdata = cnoid::VectorXd::Zero(m_robot->numJoints());
-    this->m_link_collision.resize(m_robot->numLinks(),false);
+    this->m_qRefv = cnoid::VectorXd::Zero(m_robot->numJoints());
+    this->m_qCurrentv = cnoid::VectorXd::Zero(m_robot->numJoints());
+    this->m_servoStatev.resize(m_robot->numJoints(), false);
 
     return RTC::RTC_OK;
 }
@@ -141,10 +117,9 @@ RTC::ReturnCode_t CollisionDetector2::onInitialize()
 RTC::ReturnCode_t CollisionDetector2::onActivated(RTC::UniqueId ec_id)
 {
     std::cerr << "[" << m_profile.instance_name<< "] onActivated(" << ec_id << ")" << std::endl;
-    m_safe_posture = false;
-    m_loop_for_check = 0;
-    collision_mode = false;
-
+    this->m_enable = true;
+    this->m_collisionFreeOnce = false;
+    this->prevCollision = false;
     return RTC::RTC_OK;
 }
 
@@ -156,250 +131,161 @@ RTC::ReturnCode_t CollisionDetector2::onDeactivated(RTC::UniqueId ec_id)
 
 RTC::ReturnCode_t CollisionDetector2::onExecute(RTC::UniqueId ec_id)
 {
-    static int loop = 0;
     loop++;
 
-    double dt = 1.0 / this->get_context(ec_id)->get_rate();
-
+    double rate = this->get_context(ec_id)->get_rate();
+    if(rate <= 0.0){
+      std::cerr << "\x1b[31m[" << m_profile.instance_name << "] " << " periodic rate is invalid " << rate << "\x1b[39m" << std::endl;
+      return RTC::RTC_ERROR;
+    }
+    double dt = 1.0 / rate;
 
     /*
-      サーボオン状態の関節があるときに、次の指令値が自己干渉しない姿勢->自己干渉する姿勢に遷移するものだった場合、collision modeが作動する.
-      collision mode時は、collision_maskが1の関節は動かない. (stop_jointdata)
-      全軸がサーボオフだと、collision modeが解消される
+      サーボオン状態の関節がないとき: releaseSignal
+      サーボオン状態の関節があるとき:
+        サーボオンしてから一度も今の指令値が自己干渉しない姿勢になっていない場合: releaseSignal
+        else:
+          今の指令値が自己干渉する姿勢 かつ 次の指令値が今以上に自己干渉が悪化する姿勢に遷移するものだった場合: stopSignal
+          else : release Signal
      */
 
-    if (m_qRefIn.isNew() ) {
-      m_qRefIn.read();
+    bool is_qRef_updated = false;
+    if (this->m_qRefIn.isNew() ) {
+      this->m_qRefIn.read();
+      if(this->m_qRef.data.length() == this->m_robot->numJoints()){
+        for(int i=0;i<this->m_robot->numJoints();i++) this->m_qRefv[i] = this->m_qRef.data[i];
+        is_qRef_updated = true;
+      }
     }
-    if (m_servoStateIn.isNew()) {
-        m_servoStateIn.read();
+    bool is_qCurrent_updated = false;
+    if (this->m_qCurrentIn.isNew() ) {
+      this->m_qCurrentIn.read();
+      if(this->m_qCurrent.data.length() == this->m_robot->numJoints()){
+        for(int i=0;i<this->m_robot->numJoints();i++) this->m_qCurrentv[i] = this->m_qCurrent.data[i];
+        is_qCurrent_updated = true;
+      }
     }
-    if ( ! m_enable && m_qRef.data.length() == m_robot->numJoints()) {
-        if ( loop % 100 == 1) {
-            std::cerr << "[" << m_profile.instance_name << "] CAUTION!! The robot is moving without checking self collision detection!!! please send enableCollisionDetection to CollisoinDetection RTC" << std::endl;
+    if(!is_qRef_updated || !is_qCurrent_updated){
+      return RTC::RTC_OK;  // qRef, qCurrent が届かなければ何もしない
+    }
+    if (this->m_servoStateIn.isNew()) {
+        this->m_servoStateIn.read();
+        for (int i = 0; i < this->m_robot->numJoints(); i++ ){
+          this->m_servoStatev[i] = (this->m_servoState.data[i][0] & OpenHRP::RobotHardwareService::SERVO_STATE_MASK) >> OpenHRP::RobotHardwareService::SERVO_STATE_SHIFT;
         }
-        for ( unsigned int i = 0; i < m_q.data.length(); i++ ) {
-          m_q.data[i] = m_qRef.data[i];
-        }
-        m_q.tm = m_qRef.tm;
-        m_qOut.write();
     }
 
-    if ( m_enable && m_qRef.data.length() == m_robot->numJoints()) {
+    bool isCollision = false;
+
+    if ( !this->m_enable ) {
+      isCollision = false;
+      this->m_collisionFreeOnce = false;
+    }else{
 
       // check servo
       bool has_servoOn = false;
-      for (unsigned int i = 0; i < m_robot->numJoints(); i++ ){
-        int servo_state = (m_servoState.data[i][0] & OpenHRP::RobotHardwareService::SERVO_STATE_MASK) >> OpenHRP::RobotHardwareService::SERVO_STATE_SHIFT;
-        has_servoOn = has_servoOn || (servo_state == 1);
+      for (int i = 0; i < this->m_robot->numJoints(); i++ ){
+        has_servoOn = has_servoOn || this->m_servoStatev[i];
       }
 
-      //set robot model's angle for collision check(two types)
-      //  1. ! collision_mode  .. check based on qRef
-      //  2. collision_mode    .. check based on stop_jointdata
-      if ( m_loop_for_check == 0 ) { // update robot posutre for each m_loop_for_check timing
-        if (!this->collision_mode ) {
-          for ( unsigned int i = 0; i < m_robot->numJoints(); i++ ){
-            m_robot->joint(i)->q() = m_qRef.data[i];
-          }
-        }else{
-          for ( unsigned int i = 0; i < m_robot->numJoints(); i++ ){
-            if ( m_curr_collision_mask[i] == 1) {// joint with 1 (do not move when collide :default), need to be updated using stop data
-              m_robot->joint(i)->q() = m_stop_jointdata[i];
-            }else{                               // joint with 0 (move even if collide), need to be updated using reference(dangerous) data
-              m_robot->joint(i)->q() = m_qRef.data[i];
-            }
-          }
-        }
-        m_robot->calcForwardKinematics();
-      }
+      if(!has_servoOn){
+        isCollision = false;
+        this->m_collisionFreeOnce = false;
 
-      coil::TimeValue tm1 = coil::gettimeofday();
+      }else{
 
-      // m_collision_loop 回の周期に分けて、干渉をチェックする.
-      {
-        std::map<std::string, std::shared_ptr<CollisionLinkPair> >::iterator it = this->m_pair.begin();
-        for ( int i = 0; it != m_pair.end(); it++, i++){
-          int sub_size = (m_pair.size() + m_collision_loop -1) / m_collision_loop;  // 10 / 3 = 3  / floor
-          // 0 : 0 .. sub_size-1                            // 0 .. 2
-          // 1 : sub_size ... sub_size*2-1                  // 3 .. 5
-          // k : sub_size*k ... sub_size*(k+1)-1            // 6 .. 8
-          // n : sub_size*n ... m_pair.size()               // 9 .. 10
-          if ( sub_size*m_loop_for_check <= i && i < sub_size*(m_loop_for_check+1) ) {
+        // qCurrentで干渉チェック
+        bool currentCollision = false;
+        {
+          for ( int i = 0; i < this->m_robot->numJoints(); i++ ){
+            this->m_robot->joint(i)->q() = this->m_qCurrentv[i];
+          }
+          this->m_robot->calcForwardKinematics();
+          std::map<std::string, std::shared_ptr<CollisionLinkPair> >::iterator it = this->m_pair.begin();
+          for ( int i = 0; it != m_pair.end(); it++, i++){
             std::shared_ptr<CollisionLinkPair> c = it->second;
             cnoid::Vector3 point0_local, point1_local;
             choreonoid_vclip::computeDistance(this->m_VclipLinks[c->link0], c->link0->p(), c->link0->R(),
                                               this->m_VclipLinks[c->link1], c->link1->p(), c->link1->R(),
-                                              c->distance, point0_local, point1_local);
-            c->point0 = c->link0->T() * point0_local;
-            c->point1 = c->link1->T() * point1_local;
+                                              c->currentDistance, point0_local, point1_local);
+            if(c->currentDistance <= this->tolerance) currentCollision = true;
           }
         }
-      }
 
-      coil::TimeValue tm2 = coil::gettimeofday();
-
-      if( !has_servoOn ) {
-        this->collision_mode = false;
-      }
-
-      // 干渉チェックが1周したら、チェック結果に応じてstateを変更する
-      std::vector<std::pair<cnoid::Vector3, cnoid::Vector3> > lines;
-      if ( m_loop_for_check == m_collision_loop-1 ) {
-        bool last_safe_posture = this->m_safe_posture;
-        this->m_safe_posture = true;
-        for (unsigned int i = 0; i < m_robot->numLinks(); i++ ){
-          this->m_link_collision[m_robot->link(i)->index()] = false;
+        if(!currentCollision) {
+          if(!this->m_collisionFreeOnce){
+            this->m_collisionFreeOnce = true;
+            std::cerr << "[" << this->m_profile.instance_name << "] [" << this->m_qRef.tm << "] set safe posture" << std::endl;
+          }
         }
-        {
-          std::map<std::string, std::shared_ptr<CollisionLinkPair> >::iterator it = m_pair.begin();
-          for (unsigned int i = 0; it != m_pair.end(); i++, it++){
-            std::shared_ptr<CollisionLinkPair> c = it->second;
-            lines.push_back(std::make_pair(c->point0, c->point1));
-            if ( c->distance <= c->tolerance ) { // collide
-              this->m_safe_posture = false;
-              if ( loop%200==0 || last_safe_posture ) {
-                std::cerr << "[" << m_profile.instance_name << "] " << i << "/" << m_pair.size() << " pair: " << c->link0->name() << "/" << c->link1->name() <<", distance = " << c->distance << std::endl;
+
+        if(!this->m_collisionFreeOnce){
+          isCollision = false;
+
+        }else{
+
+          if(!currentCollision){
+            isCollision = false;
+          }else{
+            // qRefへ向かう姿勢で干渉チェック
+            bool getWorse = false;
+            {
+              cnoid::VectorX qNextv = this->m_qCurrentv + (this->m_qRefv - this->m_qCurrentv) * dt;
+              for ( int i = 0; i < this->m_robot->numJoints(); i++ ){
+                this->m_robot->joint(i)->q() = qNextv[i];
               }
-              m_link_collision[c->link0->index()] = true;
-              m_link_collision[c->link1->index()] = true;
-              std::copy(m_init_collision_mask.begin(), m_init_collision_mask.end(), m_curr_collision_mask.begin()); // copy init_collision_mask to curr_collision_mask
+              this->m_robot->calcForwardKinematics();
+              std::map<std::string, std::shared_ptr<CollisionLinkPair> >::iterator it = this->m_pair.begin();
+              for ( int i = 0; it != m_pair.end(); it++, i++){
+                std::shared_ptr<CollisionLinkPair> c = it->second;
+                cnoid::Vector3 point0_local, point1_local;
+                choreonoid_vclip::computeDistance(this->m_VclipLinks[c->link0], c->link0->p(), c->link0->R(),
+                                                  this->m_VclipLinks[c->link1], c->link1->p(), c->link1->R(),
+                                                  c->nextDistance, point0_local, point1_local);
+                if(c->currentDistance <= this->tolerance) {
+                  if(c->nextDistance <= c->currentDistance) {
+                    getWorse = true;
+                    if ( this->loop%200==0 || !this->prevCollision ) {
+                      std::cerr << "[" << m_profile.instance_name << "] " << i << "/" << this->m_pair.size() << " pair: " << c->link0->name() << "/" << c->link1->name() << ", distance = " << c->currentDistance << std::endl;
+                    }
+                  }
+                }else{
+                  if(c->nextDistance <= this->tolerance) {
+                    getWorse = true;
+                    if ( this->loop%200==0 || !this->prevCollision ) {
+                      std::cerr << "[" << m_profile.instance_name << "] " << i << "/" << this->m_pair.size() << " pair: " << c->link0->name() << "/" << c->link1->name() << ", distance = " << c->currentDistance << std::endl;
+                    }
+                  }
+                }
+              }
             }
+
+            if(getWorse) isCollision = true;
+            else isCollision = false;
           }
         }
-
-        if(has_servoOn && last_safe_posture && !this->m_safe_posture) {
-          this->collision_mode = true;
-          for ( unsigned int i = 0; i < m_qRef.data.length(); i++ ) {
-            m_stop_jointdata[i] = m_qRef.data[i];;
-          }
-        }
-
-        // set collisoin state
-        m_state.time = tm2;
-        for (unsigned int i = 0; i < m_robot->numJoints(); i++ ){
-          m_state.angle[i] = m_robot->joint(i)->q();
-        }
-        for (unsigned int i = 0; i < m_robot->numLinks(); i++ ){
-          m_state.collide[i] = m_link_collision[i];
-        }
-        m_state.lines.length(lines.size());
-        for(unsigned int i = 0; i < lines.size(); i++ ){
-          const std::pair<cnoid::Vector3, cnoid::Vector3>& line = lines[i];
-          double *v;
-          m_state.lines[i].length(2);
-          m_state.lines[i].get_buffer()[0].length(3);
-          v = m_state.lines[i].get_buffer()[0].get_buffer();
-          v[0] = line.first.data()[0];
-          v[1] = line.first.data()[1];
-          v[2] = line.first.data()[2];
-          m_state.lines[i].get_buffer()[1].length(3);
-          v = m_state.lines[i].get_buffer()[1].get_buffer();
-          v[0] = line.second.data()[0];
-          v[1] = line.second.data()[1];
-          v[2] = line.second.data()[2];
-        }
-        m_state.computation_time = (tm2-tm1)*1000.0;
-        m_state.safe_posture = m_safe_posture;
-        m_state.recover_time = 0;
-        m_state.loop_for_check = m_loop_for_check;
       }
 
       // mode に応じて出力
-      if (m_safe_posture){ // safe mode
-        for ( unsigned int i = 0; i < m_q.data.length(); i++ ) {
-          m_q.data[i] = m_qRef.data[i];
-        }
-      } else {
-        for ( unsigned int i = 0; i < m_q.data.length(); i++ ) {
-          if (m_curr_collision_mask[i] == 0) { // 0: passthough reference data, 1 output safe data, stop joints only joint with 1
-            m_q.data[i] = m_qRef.data[i];
-          }else{
-            m_q.data[i] = m_stop_jointdata[i];
-          }
-        }
+      this->m_stopSignal.tm = m_qRef.tm;
+      this->m_releaseSignal.tm = m_qRef.tm;
+      if(isCollision){
+        this->m_stopSignal.data = 1;
+        this->m_releaseSignal.data = 0;
+      }else{
+        this->m_stopSignal.data = 0;
+        this->m_releaseSignal.data = 1;
       }
+      this->m_stopSignalOut.write();
+      this->m_releaseSignalOut.write();
 
-      if ( m_pair.size() == 0 && (loop % ((int)(5/dt))) == 1 ) {
-        std::cerr << "[" << m_profile.instance_name << "] CAUTION!! The robot is moving without checking self collision detection!!! please define collision_pair in configuration file" << std::endl;
-      }
-      if ( ! has_servoOn && !this->m_safe_posture && !this->collision_mode ) {
-        if ( (loop % ((int)(5/dt))) == 1) {
-          std::cerr << "[" << m_profile.instance_name << "] CAUTION!! The robot is moving while collision detection!!!, since we do not get safe_posture yet" << std::endl;
-        }
-      }
-      //
-      m_q.tm = m_qRef.tm;
-      m_qOut.write();
-
-
-      if ( ++m_loop_for_check >= m_collision_loop ) m_loop_for_check = 0;
+      this->prevCollision = isCollision;
 
     }
     return RTC::RTC_OK;
 }
 
-/*
-  RTC::ReturnCode_t CollisionDetector2::onAborting(RTC::UniqueId ec_id)
-  {
-  return RTC::RTC_OK;
-  }
-*/
 
-/*
-  RTC::ReturnCode_t CollisionDetector2::onError(RTC::UniqueId ec_id)
-  {
-  return RTC::RTC_OK;
-  }
-*/
-
-/*
-  RTC::ReturnCode_t CollisionDetector2::onReset(RTC::UniqueId ec_id)
-  {
-  return RTC::RTC_OK;
-  }
-*/
-
-/*
-  RTC::ReturnCode_t CollisionDetector2::onStateUpdate(RTC::UniqueId ec_id)
-  {
-  return RTC::RTC_OK;
-  }
-*/
-
-/*
-  RTC::ReturnCode_t CollisionDetector2::onRateChanged(RTC::UniqueId ec_id)
-  {
-  return RTC::RTC_OK;
-  }
-*/
-
-bool CollisionDetector2::setTolerance(const char *i_link_pair_name, double i_tolerance) {
-    if (strcmp(i_link_pair_name, "all") == 0 || strcmp(i_link_pair_name, "ALL") == 0){
-      for ( std::map<std::string, std::shared_ptr<CollisionLinkPair> >::iterator it = m_pair.begin();  it != m_pair.end(); it++){
-        it->second->tolerance = i_tolerance;
-      }
-    }else if ( m_pair.find(std::string(i_link_pair_name)) != m_pair.end() ) {
-      m_pair[std::string(i_link_pair_name)]->tolerance = i_tolerance;
-    }else{
-      return false;
-    }
-    return true;
-}
-
-bool CollisionDetector2::setCollisionLoop(int input_loop) {
-    if (input_loop > 0) {
-        m_collision_loop = input_loop;
-        return true;
-    }
-    return false;
-}
-
-bool CollisionDetector2::getCollisionStatus(OpenHRP::CollisionDetectorService::CollisionState &state)
-{
-    state = m_state;
-    return true;
-}
 
 void CollisionDetector2::setupVClipModel(cnoid::BodyPtr i_body)
 {
@@ -408,15 +294,6 @@ void CollisionDetector2::setupVClipModel(cnoid::BodyPtr i_body)
   }
 }
 
-bool CollisionDetector2::checkIsSafeTransition(void)
-{
-    for ( unsigned int i = 0; i < m_q.data.length(); i++ ) {
-        // If servoOn, check too large joint angle gap. Otherwise (servoOff), neglect too large joint angle gap.
-        int servo_state = (m_servoState.data[i][0] & OpenHRP::RobotHardwareService::SERVO_STATE_MASK) >> OpenHRP::RobotHardwareService::SERVO_STATE_SHIFT; // enum SwitchStatus {SWITCH_ON, SWITCH_OFF};
-        if (servo_state == 1 && abs(m_q.data[i] - m_qRef.data[i]) > 0.017) return false;
-    }
-    return true;
-}
 
 bool CollisionDetector2::enable(void)
 {
@@ -424,31 +301,34 @@ bool CollisionDetector2::enable(void)
         std::cerr << "[" << m_profile.instance_name << "] CollisionDetector2 is already enabled." << std::endl;
         return true;
     }
-
-    if (!checkIsSafeTransition()){
-        std::cerr << "[" << m_profile.instance_name << "] CollisionDetector2 cannot be enabled because of different reference joint angle" << std::endl;
-        return false;
-    }
-
     std::cerr << "[" << m_profile.instance_name << "] CollisionDetector2 is successfully enabled." << std::endl;
-
-    m_safe_posture = false;
-    m_loop_for_check = 0;
-    collision_mode = false;
-
     m_enable = true;
     return true;
 }
 
 bool CollisionDetector2::disable(void)
 {
-    if (!checkIsSafeTransition()){
-        std::cerr << "[" << m_profile.instance_name << "] CollisionDetector2 cannot be disabled because of different reference joint angle" << std::endl;
-        return false;
+    if (!m_enable){
+        std::cerr << "[" << m_profile.instance_name << "] CollisionDetector2 is already disabled." << std::endl;
+        return true;
     }
     std::cerr << "[" << m_profile.instance_name << "] CollisionDetector2 is successfully disabled." << std::endl;
     m_enable = false;
     return true;
+}
+
+bool CollisionDetector2::setCollisionDetector2Param(const hrpsys_ext_rtc::CollisionDetector2Service::CollisionDetector2Param& i_param){
+  std::lock_guard<std::mutex> guard(this->mutex_);
+  this->tolerance = i_param.tolerance;
+  this->recover_time = i_param.recover_time;
+  return true;
+}
+
+bool CollisionDetector2::getCollisionDetector2Param(hrpsys_ext_rtc::CollisionDetector2Service::CollisionDetector2Param& i_param){
+  std::lock_guard<std::mutex> guard(this->mutex_);
+  i_param.tolerance = this->tolerance;
+  i_param.recover_time = this->recover_time;
+  return true;
 }
 
 extern "C"

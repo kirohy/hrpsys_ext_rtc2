@@ -42,7 +42,6 @@ target_link_libraries(CollisionDetector2
   ${openrtm_aist_LIBRARIES}
   ${${PROJECT_NAME}_IDLLIBRARY_DIRS}
   HRPDataTypesSkel HRPDataTypesStub
-  CollisionDetectorServiceSkel CollisionDetectorServiceStub
   )
 set_target_properties(CollisionDetector2 PROPERTIES PREFIX "") # libCollisionDetector2.so -> CollisionDetector2.so
 #add_dependencies(CollisionDetector2 RTMBUILD_${PROJECT_NAME}_genrpc) # wait for rtmbuild_genidl

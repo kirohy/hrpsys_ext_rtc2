@@ -12,6 +12,7 @@
 #include <cnoid/Body>
 #include <choreonoid_vclip/choreonoid_vclip.h>
 #include <unordered_map>
+#include <mutex>
 
 #include "CollisionDetector2Service_impl.h"
 
@@ -25,13 +26,10 @@ class CollisionDetector2
   virtual RTC::ReturnCode_t onDeactivated(RTC::UniqueId ec_id);
   virtual RTC::ReturnCode_t onExecute(RTC::UniqueId ec_id);
 
-  bool setTolerance(const char *i_link_pair_name, double i_tolerance);
-  bool setCollisionLoop(int input_loop);
-  bool getCollisionStatus(OpenHRP::CollisionDetectorService::CollisionState &state);
-
-  bool checkIsSafeTransition(void);
   bool enable(void);
   bool disable(void);
+  bool setCollisionDetector2Param(const hrpsys_ext_rtc::CollisionDetector2Service::CollisionDetector2Param& i_param);
+  bool getCollisionDetector2Param(hrpsys_ext_rtc::CollisionDetector2Service::CollisionDetector2Param& i_param);
 
  protected:
   RTC::TimedDoubleSeq m_qRef;
@@ -56,26 +54,28 @@ class CollisionDetector2
  private:
   class CollisionLinkPair {
   public:
-    CollisionLinkPair(cnoid::LinkPtr link0_, cnoid::LinkPtr link1_) : link0(link0_), link1(link1_), point0(cnoid::Vector3(0,0,0)), point1(cnoid::Vector3(0,0,0)), distance(0), tolerance(0) {
+    CollisionLinkPair(cnoid::LinkPtr link0_, cnoid::LinkPtr link1_) : link0(link0_), link1(link1_), currentDistance(0), nextDistance(0) {
     }
     cnoid::LinkPtr link0, link1;
-    cnoid::Vector3 point0, point1; // world coords
-    double distance;
-    double tolerance;
+    double currentDistance;
+    double nextDistance;
   };
   std::unordered_map<cnoid::LinkPtr, std::shared_ptr<Vclip::Polyhedron> > m_VclipLinks;
   cnoid::BodyPtr m_robot;
   std::map<std::string, std::shared_ptr<CollisionLinkPair> > m_pair;
 
-  std::vector<bool> m_link_collision;
-  unsigned int m_debugLevel;
   bool m_enable;
+  long loop = 0;
+  std::mutex mutex_;
 
-  OpenHRP::CollisionDetectorService::CollisionState m_state;
+  cnoid::VectorXd m_qRefv;
+  cnoid::VectorXd m_qCurrentv;
+  std::vector<bool> m_servoStatev;
+  bool m_collisionFreeOnce;
+  bool prevCollision;
 
-  bool collision_mode;
-  cnoid::VectorXd m_stop_jointdata;
-  bool m_safe_posture;
+  double tolerance = 0.0;
+  double recover_time = 1.0;
 };
 
 extern "C"

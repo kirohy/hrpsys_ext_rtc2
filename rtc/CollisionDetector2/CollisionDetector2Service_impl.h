@@ -2,14 +2,12 @@
 #ifndef COLLISIONDETECTOR2SERVICE_IMPL_H
 #define COLLISIONDETECTOR2SERVICE_IMPL_H
 
-#include "hrpsys/idl/CollisionDetectorService.hh"
-
-using namespace OpenHRP;
+#include "hrpsys_ext_rtc/idl/CollisionDetector2Service.hh"
 
 class CollisionDetector2;
 
-class CollisionDetector2Service_impl 
-    : public virtual POA_OpenHRP::CollisionDetectorService,
+class CollisionDetector2Service_impl
+    : public virtual POA_hrpsys_ext_rtc::CollisionDetector2Service,
       public virtual PortableServer::RefCountServantBase
 {
 public:
@@ -18,9 +16,9 @@ public:
     //
     CORBA::Boolean enableCollisionDetection();
     CORBA::Boolean disableCollisionDetection();
-    CORBA::Boolean setTolerance(const char *i_link_pair_name, CORBA::Double d_tolerance);
-    CORBA::Boolean setCollisionLoop(CORBA::Short loop);
-    CORBA::Boolean getCollisionStatus(OpenHRP::CollisionDetectorService::CollisionState_out state);
+    bool setCollisionDetector2Param(const hrpsys_ext_rtc::CollisionDetector2Service::CollisionDetector2Param& i_param);
+    bool getCollisionDetector2Param(hrpsys_ext_rtc::CollisionDetector2Service::CollisionDetector2Param_out i_param);
+
     void collision(CollisionDetector2 *i_collision);
     //
 private:

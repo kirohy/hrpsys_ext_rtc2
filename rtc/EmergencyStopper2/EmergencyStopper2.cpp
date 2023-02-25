@@ -259,12 +259,14 @@ void EmergencyStopper2::Joint::startTorque(double retrieve_time){
 }
 
 bool EmergencyStopper2::setEmergencyStopper2Param(const hrpsys_ext_rtc::EmergencyStopper2Service::EmergencyStopper2Param& i_param){
+  std::lock_guard<std::mutex> guard(this->mutex_);
   this->recover_time = i_param.recover_time;
   this->retrieve_time = i_param.retrieve_time;
   return true;
 }
 
 bool EmergencyStopper2::getEmergencyStopper2Param(hrpsys_ext_rtc::EmergencyStopper2Service::EmergencyStopper2Param& i_param){
+  std::lock_guard<std::mutex> guard(this->mutex_);
   i_param.recover_time = this->recover_time;
   i_param.retrieve_time = this->retrieve_time;
   return true;

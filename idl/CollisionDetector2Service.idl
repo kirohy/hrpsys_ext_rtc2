@@ -1,0 +1,19 @@
+module hrpsys_ext_rtc
+{
+  interface CollisionDetector2Service
+  {
+    struct CollisionDetector2Param
+    {
+      double tolerance;
+      double recover_time;
+    };
+
+
+    boolean enableCollisionDetection();
+    boolean disableCollisionDetection();
+
+    boolean getCollisionDetector2Param(out CollisionDetector2Param i_param);
+    boolean setCollisionDetector2Param(in CollisionDetector2Param i_param);
+
+  };
+};
