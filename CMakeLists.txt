@@ -4,15 +4,11 @@ project(hrpsys_ext_rtc)
 # Compile as C++11, supported in ROS Kinetic and newer
  add_compile_options(-std=c++11)
 
- # rtmbuild has non exist dependency
-# (ROSBUILD_genmsg_cpp) and (RTMBUILD_${PROJECT_NAME}_genidl)
-cmake_policy(SET CMP0046 OLD)
-
 find_package(catkin REQUIRED COMPONENTS
   rtmbuild2
   roscpp)
 
-# initialize rtmbuild (generate_messages is called)
+# initialize rtmbuild2 (generate_messages is called)
 rtmbuild2_init()
 
 catkin_package(

@@ -38,7 +38,7 @@ target_link_libraries(EmergencyStopper2
   RobotHardwareServiceSkel RobotHardwareServiceStub
   )
 set_target_properties(EmergencyStopper2 PROPERTIES PREFIX "") # libEmergencyStopper2.so -> EmergencyStopper2.so
-add_dependencies(EmergencyStopper2 RTMBUILD_${PROJECT_NAME}_genrpc) # wait for rtmbuild_genidl
+add_dependencies(EmergencyStopper2 RTMBUILD2_${PROJECT_NAME}_genrpc) # wait for rtmbuild_genidl
 
 add_executable(EmergencyStopper2Comp EmergencyStopper2Comp.cpp)
 target_link_libraries(EmergencyStopper2Comp EmergencyStopper2)

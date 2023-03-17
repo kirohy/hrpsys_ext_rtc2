@@ -40,7 +40,7 @@ target_link_libraries(SoftErrorLimiter2
   HRPDataTypesSkel HRPDataTypesStub hrpsysUtil
   )
 set_target_properties(SoftErrorLimiter2 PROPERTIES PREFIX "") # libSoftErrorLimiter2.so -> SoftErrorLimiter2.so
-add_dependencies(SoftErrorLimiter2 RTMBUILD_${PROJECT_NAME}_genrpc) # wait for rtmbuild_genidl
+add_dependencies(SoftErrorLimiter2 RTMBUILD2_${PROJECT_NAME}_genrpc) # wait for rtmbuild_genidl
 
 add_executable(SoftErrorLimiter2Comp SoftErrorLimiter2Comp.cpp)
 target_link_libraries(SoftErrorLimiter2Comp SoftErrorLimiter2)
