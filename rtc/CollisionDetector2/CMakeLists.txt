@@ -1,4 +1,4 @@
-add_compile_options(-std=c++11)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_BUILD_TYPE Release)
 
 # openrtm has deprecated coding. This causes too many warnings.
@@ -11,7 +11,8 @@ find_package(catkin REQUIRED COMPONENTS
   cpp_filters
   )
 
-find_package(choreonoid REQUIRED)
+# find_package(choreonoid)を2回呼ぶとadd_library cannot create imported target "Choreonoid::Cnoid*" because another target with the same name already exists.エラーになるので、親のCMakeLists.txtで1回だけ呼ぶ.
+# find_package(choreonoid REQUIRED)
 
 find_package(PkgConfig)
 pkg_check_modules(hrpsys hrpsys-base REQUIRED)
@@ -38,7 +39,7 @@ add_library(CollisionDetector2 SHARED
   )
 target_link_libraries(CollisionDetector2
   ${catkin_LIBRARIES}
-  ${CHOREONOID_BODY_LIBRARIES_ABS}
+  ${CHOREONOID_BODY_LIBRARIES}
   ${openrtm_aist_LIBRARIES}
   ${${PROJECT_NAME}_IDLLIBRARY_DIRS}
   HRPDataTypesSkel HRPDataTypesStub
