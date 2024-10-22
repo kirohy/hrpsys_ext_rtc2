@@ -18,4 +18,5 @@
   <depend>choreonoid_qhull</depend> <!-- for CollisionDetector2 -->
   <depend>choreonoid_vclip</depend> <!-- for CollisionDetector2 -->
   <depend>cpp_filters</depend> <!-- for EmergencyStopper2 -->
+  <depend>robot_hardware</depend>
 </package>

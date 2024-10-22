@@ -11,7 +11,6 @@
 #define SOFT_ERROR_LIMITER_H
 
 #include <rtm/idl/BasicDataType.hh>
-#include "hrpsys/idl/HRPDataTypes.hh"
 #include <rtm/Manager.h>
 #include <rtm/DataFlowComponentBase.h>
 #include <rtm/CorbaPort.h>
@@ -20,6 +19,7 @@
 #include <rtm/idl/BasicDataTypeSkel.h>
 #include "joint_limit_table/JointLimitTable.h"
 #include <cnoid/Body>
+#include <robot_hardware/idl/RobotHardware2Service.hh>
 
 // Service implementation headers
 // <rtc-template block="service_impl_h">
@@ -110,21 +110,21 @@ class SoftErrorLimiter2
 
   TimedDoubleSeq m_qRef;
   TimedDoubleSeq m_qCurrent;
-  OpenHRP::TimedLongSeqSeq m_servoState;
+  robot_hardware::TimedLongSeqSeq m_servoState;
   TimedLongSeq m_beepCommand;
 
   // DataInPort declaration
   // <rtc-template block="inport_declare">
   InPort<TimedDoubleSeq> m_qRefIn;
   InPort<TimedDoubleSeq> m_qCurrentIn;
-  InPort<OpenHRP::TimedLongSeqSeq> m_servoStateIn;
+  InPort<robot_hardware::TimedLongSeqSeq> m_servoStateIn;
   
   // </rtc-template>
 
   // DataOutPort declaration
   // <rtc-template block="outport_declare">
   OutPort<TimedDoubleSeq> m_qOut;
-  OutPort<OpenHRP::TimedLongSeqSeq> m_servoStateOut;
+  OutPort<robot_hardware::TimedLongSeqSeq> m_servoStateOut;
   OutPort<TimedLongSeq> m_beepCommandOut;
   
   // </rtc-template>

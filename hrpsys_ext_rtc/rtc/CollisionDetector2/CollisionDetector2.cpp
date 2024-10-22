@@ -1,7 +1,6 @@
 #include <iomanip>
 #include <rtm/CorbaNaming.h>
 #include <cnoid/BodyLoader>
-#include <hrpsys/idl/RobotHardwareService.hh>
 #include "CollisionDetector2.h"
 #include <choreonoid_qhull/choreonoid_qhull.h>
 
@@ -172,7 +171,7 @@ RTC::ReturnCode_t CollisionDetector2::onExecute(RTC::UniqueId ec_id)
     if (this->m_servoStateIn.isNew()) {
         this->m_servoStateIn.read();
         for (int i = 0; i < this->m_robot->numJoints(); i++ ){
-          this->m_servoStatev[i] = (this->m_servoState.data[i][0] & OpenHRP::RobotHardwareService::SERVO_STATE_MASK) >> OpenHRP::RobotHardwareService::SERVO_STATE_SHIFT;
+          this->m_servoStatev[i] = (this->m_servoState.data[i][0] & robot_hardware::RobotHardware2Service::SERVO_STATE_MASK) >> robot_hardware::RobotHardware2Service::SERVO_STATE_SHIFT;
         }
     }
 

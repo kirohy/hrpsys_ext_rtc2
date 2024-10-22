@@ -33,7 +33,7 @@ EmergencyStopper2::EmergencyStopper2(RTC::Manager* manager)
   m_qOut("q", m_q),
   m_tauOut("tau", m_tau),
   m_EmergencyStopper2ServicePort("EmergencyStopper2Service"),
-  m_RobotHardwareServicePort("RobotHardwareService")
+  m_RobotHardwareServicePort("RobotHardware2Service")
 {
   this->m_service0.setComp(this);
 }
@@ -51,7 +51,7 @@ RTC::ReturnCode_t EmergencyStopper2::onInitialize()
   addOutPort("tau", m_tauOut);
   m_EmergencyStopper2ServicePort.registerProvider("service0", "EmergencyStopper2Service", m_service0);
   addPort(m_EmergencyStopper2ServicePort);
-  m_RobotHardwareServicePort.registerConsumer("service0", "RobotHardwareService", m_robotHardwareService0);
+  m_RobotHardwareServicePort.registerConsumer("service0", "RobotHardware2Service", m_robotHardwareService0);
   addPort(m_RobotHardwareServicePort);
 
   RTC::Properties& prop = this->getProperties();

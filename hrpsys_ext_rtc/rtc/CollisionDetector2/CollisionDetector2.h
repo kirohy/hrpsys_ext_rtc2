@@ -2,7 +2,6 @@
 #define COLLISION_DETECTOR2_H
 
 #include <rtm/idl/BasicDataType.hh>
-#include "hrpsys/idl/HRPDataTypes.hh"
 #include <rtm/Manager.h>
 #include <rtm/DataFlowComponentBase.h>
 #include <rtm/CorbaPort.h>
@@ -13,6 +12,7 @@
 #include <choreonoid_vclip/choreonoid_vclip.h>
 #include <unordered_map>
 #include <mutex>
+#include <robot_hardware/idl/RobotHardware2Service.hh>
 
 #include "CollisionDetector2Service_impl.h"
 
@@ -36,8 +36,8 @@ class CollisionDetector2
   RTC::InPort<RTC::TimedDoubleSeq> m_qRefIn;
   RTC::TimedDoubleSeq m_qCurrent;
   RTC::InPort<RTC::TimedDoubleSeq> m_qCurrentIn;
-  OpenHRP::TimedLongSeqSeq m_servoState;
-  RTC::InPort<OpenHRP::TimedLongSeqSeq> m_servoStateIn;
+  robot_hardware::TimedLongSeqSeq m_servoState;
+  RTC::InPort<robot_hardware::TimedLongSeqSeq> m_servoStateIn;
 
   RTC::TimedLong m_stopSignal;
   RTC::OutPort<RTC::TimedLong> m_stopSignalOut;

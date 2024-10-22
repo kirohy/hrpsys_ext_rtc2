@@ -9,7 +9,7 @@
 #include <rtm/DataOutPort.h>
 #include <cnoid/Body>
 #include "EmergencyStopper2Service_impl.h"
-#include <hrpsys_ros_bridge/idl/RobotHardwareService.hh>
+#include <robot_hardware/idl/RobotHardware2Service.hh>
 #include <cpp_filters/TwoPointInterpolator.h>
 #include <mutex>
 
@@ -53,7 +53,7 @@ class EmergencyStopper2 : public RTC::DataFlowComponentBase
   EmergencyStopper2Service_impl m_service0;
 
   RTC::CorbaPort m_RobotHardwareServicePort;
-  RTC::CorbaConsumer<OpenHRP::RobotHardwareService> m_robotHardwareService0;
+  RTC::CorbaConsumer<robot_hardware::RobotHardware2Service> m_robotHardwareService0;
 
  private:
   std::mutex mutex_;

@@ -9,13 +9,11 @@ find_package(catkin REQUIRED COMPONENTS
   choreonoid_qhull
   choreonoid_vclip
   cpp_filters
+  robot_hardware
   )
 
 # find_package(choreonoid)を2回呼ぶとadd_library cannot create imported target "Choreonoid::Cnoid*" because another target with the same name already exists.エラーになるので、親のCMakeLists.txtで1回だけ呼ぶ.
 # find_package(choreonoid REQUIRED)
-
-find_package(PkgConfig)
-pkg_check_modules(hrpsys hrpsys-base REQUIRED)
 
 find_package(PkgConfig)
 pkg_check_modules(openrtm_aist openrtm-aist REQUIRED)
@@ -23,7 +21,6 @@ pkg_check_modules(openrtm_aist openrtm-aist REQUIRED)
 include_directories(
   ${catkin_INCLUDE_DIRS}
   ${CHOREONOID_INCLUDE_DIRS}
-  ${hrpsys_INCLUDE_DIRS}
   ${openrtm_aist_INCLUDE_DIRS}
   )
 
@@ -42,7 +39,6 @@ target_link_libraries(CollisionDetector2
   ${CHOREONOID_BODY_LIBRARIES}
   ${openrtm_aist_LIBRARIES}
   ${${PROJECT_NAME}_IDLLIBRARY_DIRS}
-  HRPDataTypesSkel HRPDataTypesStub
   )
 set_target_properties(CollisionDetector2 PROPERTIES PREFIX "") # libCollisionDetector2.so -> CollisionDetector2.so
 add_dependencies(CollisionDetector2 RTMBUILD2_${PROJECT_NAME}_genrpc) # wait for rtmbuild_genidl

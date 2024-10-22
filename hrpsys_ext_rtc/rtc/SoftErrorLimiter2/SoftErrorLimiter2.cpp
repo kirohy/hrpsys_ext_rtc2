@@ -8,8 +8,6 @@
  */
 
 #include "SoftErrorLimiter2.h"
-#include "hrpsys/util/VectorConvert.h"
-#include "hrpsys/idl/RobotHardwareService.hh"
 #include <rtm/CorbaNaming.h>
 
 #include <cnoid/BodyLoader>
@@ -127,11 +125,11 @@ RTC::ReturnCode_t SoftErrorLimiter2::onInitialize()
   for(unsigned int i = 0; i < m_robot->numJoints(); i++) {
     m_servoState.data[i].length(1);
     int status = 0;
-    status |= 1<< OpenHRP::RobotHardwareService::CALIB_STATE_SHIFT;
-    status |= 1<< OpenHRP::RobotHardwareService::POWER_STATE_SHIFT;
-    status |= 1<< OpenHRP::RobotHardwareService::SERVO_STATE_SHIFT;
-    status |= 0<< OpenHRP::RobotHardwareService::SERVO_ALARM_SHIFT;
-    status |= 0<< OpenHRP::RobotHardwareService::DRIVER_TEMP_SHIFT;
+    status |= 1<< robot_hardware::RobotHardware2Service::CALIB_STATE_SHIFT;
+    status |= 1<< robot_hardware::RobotHardware2Service::POWER_STATE_SHIFT;
+    status |= 1<< robot_hardware::RobotHardware2Service::SERVO_STATE_SHIFT;
+    status |= 0<< robot_hardware::RobotHardware2Service::SERVO_ALARM_SHIFT;
+    status |= 0<< robot_hardware::RobotHardware2Service::DRIVER_TEMP_SHIFT;
     m_servoState.data[i][0] = status;
   }
 
@@ -273,7 +271,7 @@ RTC::ReturnCode_t SoftErrorLimiter2::onExecute(RTC::UniqueId ec_id)
       }
     }
     for ( unsigned int i = 0; i < m_qRef.data.length(); i++ ){
-      if(((m_servoState.data[i][0] & OpenHRP::RobotHardwareService::SERVO_STATE_MASK) >> OpenHRP::RobotHardwareService::SERVO_STATE_SHIFT) == 1){
+      if(((m_servoState.data[i][0] & robot_hardware::RobotHardware2Service::SERVO_STATE_MASK) >> robot_hardware::RobotHardware2Service::SERVO_STATE_SHIFT) == 1){
         m_servo_state[i] = 10;
       }else{
         m_servo_state[i] = std::max(0, m_servo_state[i] - 1);
@@ -334,7 +332,7 @@ RTC::ReturnCode_t SoftErrorLimiter2::onExecute(RTC::UniqueId ec_id)
         if (loop % debug_print_freq == 0 || debug_print_position_first ) {
             std::cerr << ", q(limited) = " << m_qRef.data[i] << std::endl;
         }
-        m_servoState.data[i][0] |= (0x200 << OpenHRP::RobotHardwareService::SERVO_ALARM_SHIFT);
+        m_servoState.data[i][0] |= (0x200 << robot_hardware::RobotHardware2Service::SERVO_ALARM_SHIFT);
         position_limit_error = true;
       }
       }
@@ -355,7 +353,7 @@ RTC::ReturnCode_t SoftErrorLimiter2::onExecute(RTC::UniqueId ec_id)
         if (loop % debug_print_freq == 0 || debug_print_error_first ) {
           std::cerr << ", q(limited) = " << m_qRef.data[i] << std::endl;
         }
-        m_servoState.data[i][0] |= (0x040 << OpenHRP::RobotHardwareService::SERVO_ALARM_SHIFT);
+        m_servoState.data[i][0] |= (0x040 << robot_hardware::RobotHardware2Service::SERVO_ALARM_SHIFT);
         soft_limit_error = true;
       }
       }
